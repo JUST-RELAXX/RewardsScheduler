@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: transparent;
+    overflow: hidden;
+  }
+  .notif {
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(20px);
+    animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    -webkit-app-region: drag;
+  }
+  @keyframes slideIn { from { transform: translateX(120%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+  .title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .body { color: #c8d6e5; font-size: 14px; line-height: 1.5; flex: 1; }
+  .buttons {
+    display: flex; gap: 10px; margin-top: 16px;
+    -webkit-app-region: no-drag;
+  }
+  .btn {
+    flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: all 0.2s;
+    -webkit-app-region: no-drag;
+  }
+  .btn-yes { color: white; }
+  .btn-yes:hover { transform: translateY(-2px); }
+  .btn-no { background: rgba(255,255,255,0.08); color: #8899aa; border: 1px solid rgba(255,255,255,0.1); }
+  .btn-no:hover { background: rgba(255,255,255,0.15); color: #bbccdd; }
+  .btn-later { background: rgba(255,255,255,0.05); color: #667788; font-size: 12px; border: 1px solid rgba(255,255,255,0.06); }
+  .btn-later:hover { background: rgba(255,255,255,0.1); }
+  .icon { font-size: 28px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <div class="notif" id="notif">
+    <div>
+      <div class="icon" id="icon">👋</div>
+      <div class="title" id="title">Hey bruh! 👋</div>
+      <div class="body" id="bodyText">Wanna do all the searches now???</div>
+    </div>
+    <div class="buttons">
+      <button class="btn btn-yes" id="btnYes">LET'S GO! 🚀</button>
+      <button class="btn btn-no" id="btnNo">Not Now</button>
+      <button class="btn btn-later" id="btnLater">Later</button>
+    </div>
+  </div>
+  <script>
+    // Use require directly (nodeIntegration enabled for this window)
+    const { ipcRenderer } = require('electron');
+
+    // Read notification data from URL hash
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const urgency = params.get('urgency') || 'casual';
+    const title = decodeURIComponent(params.get('title') || 'Hey bruh! 👋');
+    const body = decodeURIComponent(params.get('body') || 'Wanna do all the searches now???');
+
+    // Apply urgency styling
+    const styles = {
+      casual:   { bg: '#1a2744', accent: '#00b0ff', glow: 'rgba(0,176,255,0.3)', icon: '👋' },
+      medium:   { bg: '#2a2040', accent: '#ff9800', glow: 'rgba(255,152,0,0.3)', icon: '⏰' },
+      high:     { bg: '#2d1a1a', accent: '#ff5722', glow: 'rgba(255,87,34,0.3)', icon: '⚠️' },
+      critical: { bg: '#3d0a0a', accent: '#ff1744', glow: 'rgba(255,23,68,0.5)', icon: '🚨' }
+    };
+    const s = styles[urgency] || styles.casual;
+
+    const notifEl = document.getElementById('notif');
+    notifEl.style.background = s.bg;
+    notifEl.style.border = `1px solid ${s.accent}40`;
+    notifEl.style.boxShadow = `0 8px 32px ${s.glow}, inset 0 1px 0 rgba(255,255,255,0.05)`;
+
+    document.getElementById('title').style.color = s.accent;
+    document.getElementById('title').textContent = title;
+    document.getElementById('bodyText').textContent = body;
+    document.getElementById('icon').textContent = s.icon;
+
+    const btnYes = document.getElementById('btnYes');
+    btnYes.style.background = `linear-gradient(135deg, ${s.accent}, ${s.accent}dd)`;
+    btnYes.style.boxShadow = `0 4px 15px ${s.accent}40`;
+
+    // Direct IPC — no preload needed
+    btnYes.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ipcRenderer.send('notif-response', 'yes');
+    });
+    document.getElementById('btnNo').addEventListener('click', (e) => {
+      e.stopPropagation();
+      ipcRenderer.send('notif-response', 'no');
+    });
+    document.getElementById('btnLater').addEventListener('click', (e) => {
+      e.stopPropagation();
+      ipcRenderer.send('notif-response', 'later');
+    });
+  </script>
+</body>
+</html>

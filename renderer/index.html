@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MS Rewards Scheduler</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Using system fonts (Segoe UI) instead of external Google Fonts to avoid Electron CSP issues -->
+</head>
+<body>
+
+  <!-- Custom Title Bar -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-left">
+      <span class="titlebar-icon">💎</span>
+      <span class="titlebar-title">MS Rewards Scheduler</span>
+      <span class="titlebar-badge" id="versionBadge">v1.0</span>
+    </div>
+    <div class="titlebar-center">
+      <span class="live-clock" id="liveClock">00:00:00</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn minimize" id="btnMinimize">─</button>
+      <button class="titlebar-btn close" id="btnClose">✕</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="app-container">
+
+    <!-- Status Banner -->
+    <div class="status-banner" id="statusBanner">
+      <div class="status-icon" id="statusIcon">🟢</div>
+      <div class="status-text" id="statusText">Ready — Select accounts and start your session</div>
+      <div class="status-timer" id="statusTimer"></div>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <div class="action-bar">
+      <button class="action-btn primary" id="btnRunAll">
+        <span class="btn-icon">🚀</span>
+        <span class="btn-label">Run All Accounts</span>
+      </button>
+      <button class="action-btn accent" id="btnRunSelected">
+        <span class="btn-icon">✅</span>
+        <span class="btn-label">Run Selected</span>
+      </button>
+      <button class="action-btn danger" id="btnStop" style="display:none;">
+        <span class="btn-icon">⏹️</span>
+        <span class="btn-label">Stop Session</span>
+      </button>
+      <div class="action-spacer"></div>
+      <button class="action-btn ghost" id="btnSettings">
+        <span class="btn-icon">⚙️</span>
+      </button>
+    </div>
+
+    <!-- Accounts Grid -->
+    <div class="section-header">
+      <h2>Edge Profiles</h2>
+      <div class="header-meta">
+        <span class="meta-badge" id="doneCounter">0/0 done today</span>
+        <button class="select-all-btn" id="btnSelectAll">Select All</button>
+      </div>
+    </div>
+
+    <div class="accounts-grid" id="accountsGrid">
+      <!-- Dynamically populated -->
+    </div>
+
+    <!-- Session Progress Panel (shown during active session) -->
+    <div class="session-panel" id="sessionPanel" style="display:none;">
+      <div class="panel-header">
+        <h3>📡 Active Session</h3>
+        <span class="session-elapsed" id="sessionElapsed">0:00</span>
+      </div>
+      <div class="session-log" id="sessionLog">
+        <!-- Log entries appear here -->
+      </div>
+    </div>
+
+    <!-- Profile Close Prompt Modal -->
+    <div class="modal-overlay" id="closePromptModal" style="display:none;">
+      <div class="modal-card">
+        <div class="modal-icon">🤔</div>
+        <h3 class="modal-title">Profile Closed!</h3>
+        <p class="modal-body" id="closePromptText">Did you close this by mistake?</p>
+        <div class="modal-actions">
+          <button class="modal-btn primary" id="btnCloseMistake">By Mistake! Reopen 🔄</button>
+          <button class="modal-btn ghost" id="btnCloseIntentional">Nah, I meant to close it</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-overlay" id="settingsOverlay" style="display:none;">
+      <div class="settings-card">
+        <div class="settings-header">
+          <h3>⚙️ Settings</h3>
+          <button class="close-settings" id="btnCloseSettings">✕</button>
+        </div>
+        <div class="settings-body">
+          <div class="setting-group">
+            <label class="setting-label">Searches per Account</label>
+            <input type="number" id="setSearchCount" class="setting-input" value="60" min="1" max="100">
+            <span class="setting-hint">Default: 60 (Gold level)</span>
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">Concurrent Active Searches</label>
+            <input type="number" id="setConcurrent" class="setting-input" value="2" min="1" max="5">
+            <span class="setting-hint">How many profiles search at full speed simultaneously</span>
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">Search Delay (seconds)</label>
+            <input type="range" id="setDelay" class="setting-slider" min="3" max="30" value="10">
+            <span class="setting-value" id="setDelayValue">10s</span>
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="setReminders" checked>
+              Enable Reminders
+            </label>
+          </div>
+          <button class="action-btn primary" id="btnSaveSettings" style="width:100%;margin-top:16px;">
+            <span class="btn-label">💾 Save Settings</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
