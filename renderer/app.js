@@ -2,6 +2,7 @@
 // Direct IPC via require('electron') — no preload bridge needed
 
 const { ipcRenderer } = require('electron');
+const { ExtensionInstance } = require('./extension-logic.js');
 
 // ─── Error Boundary ───
 window.onerror = function(msg, url, line, col, error) {
@@ -31,12 +32,13 @@ function initDOM() {
   [
     'liveClock', 'statusIcon', 'statusText', 'statusTimer',
     'accountsGrid', 'doneCounter', 'btnRunAll', 'btnRunSelected',
-    'btnStop', 'btnSelectAll', 'btnSettings', 'sessionPanel',
-    'sessionElapsed', 'sessionLog', 'closePromptModal', 'closePromptText',
+    'btnSettings', 'closePromptModal', 'closePromptText',
     'btnCloseMistake', 'btnCloseIntentional', 'settingsOverlay',
     'btnCloseSettings', 'btnSaveSettings', 'setSearchCount',
     'setConcurrent', 'setDelay', 'setDelayValue', 'setReminders',
-    'btnMinimize', 'btnClose'
+    'btnMinimize', 'btnClose', 'dashboardView', 'sessionView',
+    'sessionElapsed', 'sessionProgressText', 'btnStopSession',
+    'consolePanel', 'consoleBody', 'btnToggleConsole', 'webviewGrid'
   ].forEach(id => { dom[id] = $(id); });
 }
 
@@ -186,6 +188,10 @@ function updateDoneCounter() {
 
 // ─── Event Listeners ───
 function setupUI() {
+  // FORCE BUTTONS TO SHOW
+  if (dom.btnRunAll) dom.btnRunAll.style.display = 'flex';
+  if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
+
   // Run All
   on(dom.btnRunAll, 'click', async () => {
     if (!profilesLoaded || profiles.length === 0) {
@@ -215,6 +221,10 @@ function setupUI() {
     await ipcRenderer.invoke('stop-session');
     endSessionUI();
   });
+
+  // Window controls
+  on(dom.btnMinimize, 'click', () => ipcRenderer.send('window-minimize'));
+  on(dom.btnClose, 'click', () => ipcRenderer.send('window-close'));
 
   // Select All
   on(dom.btnSelectAll, 'click', () => {
@@ -277,9 +287,33 @@ function setupUI() {
     setTimeout(() => setStatus('🟢', 'Ready — Select accounts and start your session', 'info'), 3000);
   });
 
-  // Window controls — direct IPC send
-  on(dom.btnMinimize, 'click', () => ipcRenderer.send('window-minimize'));
-  on(dom.btnClose, 'click', () => ipcRenderer.send('window-close'));
+  on(dom.btnStopSession, 'click', async () => {
+    await ipcRenderer.invoke('stop-session');
+    endSessionUI();
+  });
+
+  on(dom.btnToggleConsole, 'click', () => {
+    if (dom.consolePanel.classList.contains('collapsed')) {
+      dom.consolePanel.classList.remove('collapsed');
+      dom.btnToggleConsole.style.transform = 'rotate(0deg)';
+    } else {
+      dom.consolePanel.classList.add('collapsed');
+      dom.btnToggleConsole.style.transform = 'rotate(180deg)';
+    }
+  });
+}
+
+const extensionInstances = {};
+
+function addLogEntry(text, type = 'info') {
+  if (!dom.consoleBody) return;
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-msg">${esc(text)}</span>`;
+  dom.consoleBody.appendChild(entry);
+  dom.consoleBody.scrollTop = dom.consoleBody.scrollHeight;
+  while (dom.consoleBody.children.length > 200) dom.consoleBody.firstChild.remove();
 }
 
 // ─── Session ───
@@ -292,19 +326,199 @@ async function startSession(profileDirs) {
   sessionRunning = true;
   sessionStartTime = Date.now();
 
-  if (dom.btnRunAll) dom.btnRunAll.style.display = 'none';
-  if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'none';
-  if (dom.btnStop) dom.btnStop.style.display = 'flex';
-  if (dom.sessionPanel) dom.sessionPanel.style.display = 'block';
-  if (dom.sessionLog) dom.sessionLog.innerHTML = '';
+  dom.dashboardView.style.display = 'none';
+  dom.sessionView.style.display = 'flex';
+  dom.consoleBody.innerHTML = '';
+  dom.webviewGrid.innerHTML = '';
 
   addLogEntry(`Session started with ${profileDirs.length} profiles`, 'info');
 
-  profileDirs.forEach(dir => {
+  profileDirs.forEach((dir, index) => {
     const p = profiles.find(pr => pr.dir === dir);
     if (p) p.searchStatus = 'waiting';
+
+    // Create wrapper for webview and extension panel
+    const wrapper = document.createElement('div');
+    wrapper.className = 'webview-wrapper';
+    
+    // Create the HTML template for the UI
+    wrapper.innerHTML = `
+      <div class="webview-header">
+        <span class="webview-title">${esc(p ? p.displayName : dir)}</span>
+        <button class="toggle-extension-btn" id="toggle-${index}">⚙️ Config</button>
+      </div>
+      <webview id="wv-${index}" src="https://www.bing.com" partition="persist:${dir}" 
+               useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0" 
+               style="flex:1; width:100%; height:100%; border:none;"></webview>
+      
+      <!-- The Collapsible Extension UI -->
+      <div class="extension-panel lavish-container" id="panel-${index}" style="display:none; overflow-y:auto; padding: 10px; max-height:400px;">
+        
+        <div id="authSection-${index}" style="text-align:center;">
+          <input type="text" id="apiKey-${index}" placeholder="Enter API Key to Unlock" class="input-field">
+          <button id="btnUnlock-${index}" class="btn">Unlock</button>
+        </div>
+
+        <div id="mainSection-${index}" style="display: none;">
+          <div id="statusMessage-${index}" class="status-message" style="display:block; text-align:center;"></div>
+          <p id="status-${index}" class="status" style="text-align:center;">Offline</p>
+          
+          <button id="btnStart-${index}" class="btn">Start</button>
+          
+          <div class="control-section">
+            <label class="label-text">Start from query number:</label>
+            <input type="number" id="startFrom-${index}" class="number-input" min="1" max="60" value="1">
+          </div>
+          
+          <div class="control-section">
+            <label class="label-text">Delay between searches: <span id="delayValue-${index}">10</span>s</label>
+            <input type="range" id="delaySlider-${index}" class="slider" min="1" max="60" value="10">
+          </div>
+          
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">Search Progress</span>
+              <span class="progress-percentage" id="progressPct-${index}">0%</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="progressBar-${index}"></div>
+            </div>
+          </div>
+          
+          <div class="control-section graph-wrapper">
+            <div class="graph-header">
+              <label class="label-text">Live Search Latency</label>
+            </div>
+            <div class="graph-container">
+              <canvas id="chartCanvas-${index}" width="600" height="300"></canvas>
+            </div>
+          </div>
+
+          <div class="current-query-section">
+            <label class="label-text">Current Query:</label>
+            <div class="current-query-box" id="currentQuery-${index}">Ready...</div>
+          </div>
+          
+          <div class="stats-section">
+            <div class="stat-row">
+              <span class="stat-label">Searches done:</span>
+              <span class="stat-value" id="countText-${index}">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Total prompts:</span>
+              <span class="stat-value" id="totalPrompts-${index}">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Remaining:</span>
+              <span class="stat-value" id="remainingText-${index}">0</span>
+            </div>
+          </div>
+          
+          <button id="btnRefresh-${index}" class="btn secondary-btn">Refresh Prompts</button>
+          
+          <div class="control-section" style="text-align: center; margin-top:20px;">
+            <button id="btnFlash-${index}" class="btn flash-btn" style="background: linear-gradient(45deg, #ff9800, #ff5722);">ACTIVATE FLASH ⚡</button>
+          </div>
+          
+        </div>
+      </div>
+    `;
+    
+    dom.webviewGrid.appendChild(wrapper);
+
+    // Setup Toggle Logic
+    const toggleBtn = wrapper.querySelector(`#toggle-${index}`);
+    const panel = wrapper.querySelector(`#panel-${index}`);
+    toggleBtn.addEventListener('click', () => {
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        toggleBtn.classList.add('active');
+        // Force chart to resize correctly after becoming visible
+        if (extensionInstances[dir] && extensionInstances[dir].chart) {
+           extensionInstances[dir].chart.resize();
+        }
+      } else {
+        panel.style.display = 'none';
+        toggleBtn.classList.remove('active');
+      }
+    });
+
+    // Initialize Extension Logic for this webview
+    const webviewEl = wrapper.querySelector(`#wv-${index}`);
+    
+    // Hide native scrollbars in the embedded page and handle zoom
+    webviewEl.addEventListener('dom-ready', () => {
+      webviewEl.insertCSS('::-webkit-scrollbar { display: none !important; }');
+      
+      // Auto-scale zoom based on the wrapper width
+      const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+           const width = entry.contentRect.width;
+           // If width is 800px or more, zoom is 1.0. If width is 400px, zoom is 0.5.
+           let zoom = width / 800;
+           if (zoom > 1.0) zoom = 1.0;
+           if (zoom < 0.25) zoom = 0.25;
+           try {
+             webviewEl.setZoomFactor(zoom);
+           } catch(e) {}
+        }
+      });
+      resizeObserver.observe(wrapper);
+    });
+
+    const uiElements = {
+      authSection: wrapper.querySelector(`#authSection-${index}`),
+      mainSection: wrapper.querySelector(`#mainSection-${index}`),
+      apiKeyInput: wrapper.querySelector(`#apiKey-${index}`),
+      btnUnlock: wrapper.querySelector(`#btnUnlock-${index}`),
+      statusMessage: wrapper.querySelector(`#statusMessage-${index}`),
+      statusText: wrapper.querySelector(`#status-${index}`),
+      btnStart: wrapper.querySelector(`#btnStart-${index}`),
+      btnFlash: wrapper.querySelector(`#btnFlash-${index}`),
+      startFromInput: wrapper.querySelector(`#startFrom-${index}`),
+      delaySlider: wrapper.querySelector(`#delaySlider-${index}`),
+      delayValue: wrapper.querySelector(`#delayValue-${index}`),
+      progressPct: wrapper.querySelector(`#progressPct-${index}`),
+      progressBar: wrapper.querySelector(`#progressBar-${index}`),
+      chartCanvas: wrapper.querySelector(`#chartCanvas-${index}`),
+      currentQuery: wrapper.querySelector(`#currentQuery-${index}`),
+      countText: wrapper.querySelector(`#countText-${index}`),
+      totalPrompts: wrapper.querySelector(`#totalPrompts-${index}`),
+      remainingText: wrapper.querySelector(`#remainingText-${index}`),
+      btnRefresh: wrapper.querySelector(`#btnRefresh-${index}`)
+    };
+
+    // Instantiate and store
+    extensionInstances[dir] = new ExtensionInstance(dir, webviewEl, uiElements);
   });
-  renderGrid();
+
+  // Calculate dynamic Flexbox layout to perfectly fill screen without gaps or squishing
+  const count = profileDirs.length;
+  let targetCols;
+  if (count <= 2) targetCols = count;
+  else if (count <= 4) targetCols = 2;
+  else if (count <= 6) targetCols = 3;
+  else targetCols = 4; // Max 4 columns for 7+ profiles
+
+  const rowCount = Math.ceil(count / targetCols);
+  let rowHeight;
+  if (rowCount === 1) rowHeight = 'calc(100vh - 200px)';
+  else if (rowCount === 2) rowHeight = 'calc(50vh - 100px)';
+  else rowHeight = '380px'; // fixed height to prevent vertical squishing for 3+ rows
+
+  const basis = `calc(${100 / targetCols}% - 20px)`; // flex-basis accounting for gap
+
+  dom.webviewGrid.style.display = 'flex';
+  dom.webviewGrid.style.flexWrap = 'wrap';
+  dom.webviewGrid.style.overflowY = 'auto';
+  dom.webviewGrid.style.alignContent = 'flex-start';
+
+  // Apply flex properties to each wrapper directly so last row expands to fill space
+  Array.from(dom.webviewGrid.children).forEach(wrapper => {
+    wrapper.style.flex = `1 1 ${basis}`;
+    wrapper.style.height = rowHeight;
+    wrapper.style.minWidth = '240px'; // Prevent it from getting too impossibly tiny
+  });
 
   sessionTimer = setInterval(() => {
     const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
@@ -317,9 +531,15 @@ async function startSession(profileDirs) {
 function endSessionUI() {
   sessionRunning = false;
   if (sessionTimer) clearInterval(sessionTimer);
+  
+  // Stop all extensions
+  Object.values(extensionInstances).forEach(inst => inst.stopSearching());
+  
+  dom.dashboardView.style.display = 'block';
+  dom.sessionView.style.display = 'none';
   if (dom.btnRunAll) dom.btnRunAll.style.display = 'flex';
   if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
-  if (dom.btnStop) dom.btnStop.style.display = 'none';
+  
   profiles.forEach(p => { if (p.searchStatus !== 'done') p.searchStatus = 'pending'; });
   renderGrid();
 }
@@ -398,15 +618,7 @@ function setStatus(icon, text, type) {
   }
 }
 
-function addLogEntry(text, type = 'info') {
-  if (!dom.sessionLog) return;
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${type}`;
-  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  entry.innerHTML = `<span class="log-time">${time}</span><span>${esc(text)}</span>`;
-  dom.sessionLog.prepend(entry);
-  while (dom.sessionLog.children.length > 50) dom.sessionLog.lastChild.remove();
-}
+// No longer needed: function addLogEntry... (moved to top)
 
 function esc(text) {
   const d = document.createElement('div');
@@ -423,4 +635,14 @@ document.addEventListener('DOMContentLoaded', () => {
   setupIPC();
   loadProfiles();
   setInterval(() => { if (!sessionRunning) loadProfiles(); }, 30000);
+
+  // DEBUG LOGGING
+  const fs = require('fs');
+  const path = require('path');
+  setInterval(() => {
+    const actionBar = document.querySelector('.action-bar');
+    if (actionBar) {
+      fs.writeFileSync(path.join(__dirname, '..', 'debug_actionbar.txt'), actionBar.outerHTML);
+    }
+  }, 2000);
 });

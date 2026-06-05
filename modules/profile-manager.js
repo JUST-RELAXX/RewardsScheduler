@@ -331,15 +331,36 @@ $$handles = [EdgeTiler]::FindEdgeWindows()
 Write-Output "Found $$($handles.Length) Edge windows"
 
 $$cols = ${cols}
+$$rows = ${rows}
+$$screenW = ${screenW}
 $$cellW = ${cellW}
 $$cellH = ${cellH}
 $$count = [Math]::Min($$handles.Length, ${count})
 
 for ($$i = 0; $$i -lt $$count; $$i++) {
-    $$x = ($$i % $$cols) * $$cellW
-    $$y = [Math]::Floor($$i / $$cols) * $$cellH
+    $$row = [Math]::Floor($$i / $$cols)
+    $$col = $$i % $$cols
+
+    # Check if this is the last row
+    $$lastRowStart = ($$rows - 1) * $$cols
+    $$inLastRow = $$i -ge $$lastRowStart
+    $$itemsInLastRow = $$count - $$lastRowStart
+
+    if ($$inLastRow -and $$itemsInLastRow -lt $$cols) {
+        # Last row has fewer windows — spread them to fill full width
+        $$lastCol = $$i - $$lastRowStart
+        $$lastCellW = [Math]::Floor($$screenW / $$itemsInLastRow)
+        $$x = $$lastCol * $$lastCellW
+        $$y = $$row * $$cellH
+        $$w = $$lastCellW
+    } else {
+        $$x = $$col * $$cellW
+        $$y = $$row * $$cellH
+        $$w = $$cellW
+    }
+
     [EdgeTiler]::ShowWindow($$handles[$$i], $$SW_RESTORE) | Out-Null
-    [EdgeTiler]::MoveWindow($$handles[$$i], $$x, $$y, $$cellW, $$cellH, $$true) | Out-Null
+    [EdgeTiler]::MoveWindow($$handles[$$i], $$x, $$y, $$w, $$cellH, $$true) | Out-Null
 }
 Write-Output "Tiled $$count windows in ${cols}x${rows} grid"
 `.replace(/\$\$/g, '$');

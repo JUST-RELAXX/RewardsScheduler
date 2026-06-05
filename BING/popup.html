@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Auto Typer Settings</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="bubbleCanvas" width="400" height="650"></canvas>
+  <h1>⚙️SETTINGS</h1>
+  
+  <div class="settings-container">
+    
+    <div class="settings-section">
+      <h2 class="section-title">🔑 API Key Management</h2>
+      <input type="password" id="apiKeySettings" placeholder="Enter API Key" class="settings-input">
+      <button id="saveApiKey" class="btn">Save API Key</button>
+      <button id="clearApiKey" class="btn danger-btn">Clear Stored Key</button>
+      <p class="status-text" id="apiStatus"></p>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">🔍 Search Behavior</h2>
+      
+      <label class="setting-label">Default Delay (seconds):</label>
+      <div class="input-group">
+        <input type="range" id="defaultDelay" min="1" max="60" value="10" class="slider">
+        <span class="value-display" id="defaultDelayValue">10s</span>
+      </div>
+
+      <div style="margin-top: 10px; background: rgba(255, 0, 0, 0.05); padding: 8px; border-radius: 6px; border: 1px dashed #ff8000;">
+        <label class="setting-label" style="color: #d50000;">⚡ Flash Mode Delay (seconds):</label>
+        <div class="input-group">
+          <input type="range" id="flashDelay" min="3" max="15" value="5" class="slider" style="accent-color: #ff0000;">
+          <span class="value-display" id="flashDelayValue" style="color: #d50000;">5s</span>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+        <label class="setting-label">Random delay:</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label><input type="radio" name="randomDelayToggle" value="off" checked> Off</label>
+          <label><input type="radio" name="randomDelayToggle" value="on"> On</label>
+        </div>
+
+        <div id="randomDelayControls" style="display:none;">
+          <label class="setting-label">Delay range (seconds):</label>
+          <div class="input-group">
+            <input type="range" id="randomDelayMin" min="1" max="60" value="1" class="slider">
+            <span class="value-display" id="randomDelayMinValue">1s</span>
+          </div>
+          <div class="input-group">
+            <input type="range" id="randomDelayMax" min="1" max="60" value="10" class="slider">
+            <span class="value-display" id="randomDelayMaxValue">10s</span>
+          </div>
+
+          <label class="setting-label">Randomize after how many searches:</label>
+          <div class="input-group">
+            <input type="range" id="randomTriggerMin" min="1" max="10" value="1" class="slider">
+            <span class="value-display" id="randomTriggerMinValue">1</span>
+          </div>
+          <div class="input-group">
+            <input type="range" id="randomTriggerMax" min="1" max="10" value="5" class="slider">
+            <span class="value-display" id="randomTriggerMaxValue">5</span>
+          </div>
+          <p class="hint">Delay will be randomized between the seconds range. The trigger defines after how many searches the delay will be re-picked (random between trigger min/max).</p>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+        <label class="setting-label">Automize query number:</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label><input type="radio" name="automizeQueryToggle" value="off" checked> Off</label>
+          <label><input type="radio" name="automizeQueryToggle" value="on"> On</label>
+        </div>
+
+        <div id="automizeQueryControls" style="display:none;">
+          <label class="setting-label">Start-from range (query numbers):</label>
+          <div class="input-group">
+            <input type="range" id="automizeMin" min="1" max="60" value="1" class="slider">
+            <span class="value-display" id="automizeMinValue">1</span>
+          </div>
+          <div class="input-group">
+            <input type="range" id="automizeMax" min="1" max="60" value="5" class="slider">
+            <span class="value-display" id="automizeMaxValue">5</span>
+          </div>
+          <p class="hint">When enabled, start-from will be randomized between the selected query number range each time a session starts.</p>
+        </div>
+      </div>
+      
+      <label class="setting-label">Auto-stop Duration (minutes):</label>
+      <input type="number" id="defaultAutoStop" min="0" max="240" value="0" placeholder="0 = no limit" class="settings-input">
+
+      <label class="setting-label">Maximum Searches to Complete:</label>
+      <input type="number" id="maxSearches" min="0" value="0" placeholder="0 = all available queries" class="settings-input">
+      <p class="hint">Set a limit for searches in one session (0 for all queries).</p>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">📝 Query Management</h2>
+      
+      <label class="setting-label">Queries per refresh:</label>
+      <input type="number" id="queriesPerRefresh" min="10" max="100" value="60" class="settings-input" readonly>
+      <p class="hint">Currently fixed at 60 queries per refresh</p>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="shuffleQueries" class="checkbox">
+        Shuffle queries randomly
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="skipDuplicates" class="checkbox">
+        Skip duplicate queries
+      </label>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">⌨️ Typing Behavior</h2>
+      
+      <label class="setting-label">Typing Speed (ms per character):</label>
+      <div class="input-group">
+        <input type="range" id="typingSpeed" min="50" max="300" value="100" class="slider">
+        <span class="value-display" id="typingSpeedValue">100ms</span>
+      </div>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="randomTypingSpeed" class="checkbox">
+        Add random variation to typing speed
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="humanLikeTyping" class="checkbox" checked>
+        Enable human-like typing simulation
+      </label>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">🗂️ Tab Management</h2>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="keepTabActive" class="checkbox" checked>
+        Keep search tab active during searches
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="createNewTab" class="checkbox">
+        Create new tab if search tab is closed
+      </label>
+      
+      <button id="resetSearchTab" class="btn secondary-btn">Reset Search Tab</button>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">🔔 Notifications</h2>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="notifyOnComplete" class="checkbox" checked>
+        Notify when all searches complete
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="notifyOnError" class="checkbox" checked>
+        Notify on errors
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="soundEffects" class="checkbox">
+        Enable sound effects
+      </label>
+    </div>
+
+    <div class="settings-section" id="accountsSection">
+      <h2 class="section-title">➕ Add account(s)</h2>
+      <div id="accountsList">
+        </div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <button id="addMoreAccounts" class="btn secondary-btn">Add more +</button>
+        <span class="hint" id="accountsHint">You can add up to 20 accounts.</span>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button id="saveAccounts" class="btn primary-btn">Save Accounts</button>
+        <button id="clearAccounts" class="btn danger-btn">Clear All Accounts</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">💾 Data Management</h2>
+      
+      <div class="data-info">
+        <p>Stored Queries: <span id="storedQueriesCount">0</span></p>
+        <p>Cache Size: <span id="cacheSize">0 KB</span></p>
+      </div>
+      
+      <button id="clearCache" class="btn secondary-btn">Clear Cache</button>
+      <button id="exportQueries" class="btn secondary-btn">Export Queries</button>
+      <button id="importQueries" class="btn secondary-btn">Import Queries</button>
+      <input type="file" id="importFile" accept=".json,.txt" style="display: none;">
+    </div>
+
+    <div class="settings-section">
+      <h2 class="section-title">🔧 Advanced Settings</h2>
+      
+      <label class="setting-label">Max Retry Attempts:</label>
+      <input type="number" id="maxRetries" min="0" max="10" value="3" class="settings-input">
+      
+      <label class="setting-label">Retry Delay (seconds):</label>
+      <input type="number" id="retryDelay" min="1" max="60" value="5" class="settings-input">
+      
+      <label class="setting-label">
+        <input type="checkbox" id="debugMode" class="checkbox">
+        Enable debug mode (console logging)
+      </label>
+      
+      <label class="setting-label">
+        <input type="checkbox" id="pauseOnError" class="checkbox" checked>
+        Pause searching on error
+      </label>
+    </div>
+
+    <div class="action-buttons">
+      <button id="saveSettings" class="btn primary-btn">💾 Save All Settings</button>
+      <button id="resetSettings" class="btn danger-btn">🔄 Reset to Defaults</button>
+      <button id="openSidebar" class="btn secondary-btn">📱 Open Sidebar</button>
+    </div>
+
+    <div id="settingsStatus" class="status-message"></div>
+
+    <div class="settings-footer">
+      <p>Auto Typer v2.1 - Settings</p>
+      <p class="small-text">All settings are saved automatically to your browser</p>
+    </div>
+
+  </div>
+
+  <script src="bubbles.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

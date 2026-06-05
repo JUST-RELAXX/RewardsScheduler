@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompts View</title>
+  <style>
+    body.heavenly {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(270deg, #e1f5fe, #81d4fa, #e1f5fe);
+      background-size: 400% 400%;
+      animation: gradient 20s ease infinite;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(129, 212, 250, 0.8);
+      font-size: 16.5px;
+    }
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    canvas#bubbleCanvasView {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.8;
+    }
+
+    #chat-container {
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      border: 2px solid #81d4fa;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.9);
+      margin: 10px;
+      box-shadow: inset 0 0 20px rgba(129, 212, 250, 0.5);
+      scroll-behavior: smooth;
+      width: 90%;
+      max-width: 600px;
+      z-index: 1;
+    }
+
+    h2 {
+      color: #00b0ff;
+      text-shadow: 0 0 15px rgba(0, 176, 255, 0.7);
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .chat-bubble {
+      background-color: #e0f7fa;
+      border-radius: 10px;
+      padding: 12px;
+      margin: 10px 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .chat-bubble:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0, 0, 255, 0.2);
+    }
+
+    .chat-bubble::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: -30%;
+      width: 160%;
+      height: 160%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 15%, transparent 50%);
+      opacity: 0.7;
+      transition: opacity 0.5s;
+    }
+
+    .chat-bubble:hover::before {
+      opacity: 1;
+    }
+
+    .chat-bubble p {
+      margin: 0;
+      font-size: 16px;
+      color: #1a237e;
+      font-weight: 500;
+      line-height: 1.4;
+      text-align: left;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-bubble span.number {
+      font-weight: bold;
+      color: #d81b60;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body class="heavenly">
+  <canvas id="bubbleCanvasView" width="400" height="600"></canvas>
+  <div id="chat-container">
+    <h2>Generated Prompts</h2>
+  </div>
+  <script src="bubbles.js"></script>
+  <script src="view_prompts.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<div class="action-bar">
+        <button class="action-btn primary" id="btnRunAll" style="display: flex;">
+          <span class="btn-icon">🚀</span>
+          <span class="btn-label">Run All Accounts</span>
+        </button>
+        <button class="action-btn accent" id="btnRunSelected" style="display: flex;">
+          <span class="btn-icon">✅</span>
+          <span class="btn-label">Run Selected</span>
+        </button>
+        <div class="action-spacer"></div>
+        <button class="action-btn ghost" id="btnSettings">
+          <span class="btn-icon">⚙️</span>
+        </button>
+      </div>
