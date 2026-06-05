@@ -828,6 +828,12 @@ body {
   background: var(--accent-glow);
 }
 
+.toggle-extension-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
 /* ─── Session View Header ─── */
 .session-header-bar {
   display: flex;
@@ -872,9 +878,20 @@ body {
 }
 
 .session-stop-btn {
-  padding: 6px 16px !important;
+  padding: 6px 14px !important;
   font-size: 13px !important;
   height: auto;
+  background: rgba(255, 23, 68, 0.1) !important;
+  color: #ff1744 !important;
+  border: 1px solid rgba(255, 23, 68, 0.3) !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.session-stop-btn:hover {
+  background: rgba(255, 23, 68, 0.2) !important;
+  border-color: #ff1744 !important;
+  box-shadow: 0 0 10px rgba(255, 23, 68, 0.3) !important;
 }
 
 /* ─── Real-time Console ─── */

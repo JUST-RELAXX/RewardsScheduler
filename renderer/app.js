@@ -345,13 +345,26 @@ async function startSession(profileDirs) {
     wrapper.innerHTML = `
       <div class="webview-header">
         <span class="webview-title">${esc(p ? p.displayName : dir)}</span>
-        <button class="toggle-extension-btn" id="toggle-${index}">⚙️ Config</button>
+        <div>
+          <button class="toggle-extension-btn" id="toggleGraph-${index}" style="margin-right: 5px;">📊 Graph</button>
+          <button class="toggle-extension-btn" id="toggle-${index}">⚙️ Config</button>
+        </div>
       </div>
       <webview id="wv-${index}" src="https://www.bing.com" partition="persist:${dir}" 
                useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0" 
                style="flex:1; width:100%; height:100%; border:none;"></webview>
       
-      <!-- The Collapsible Extension UI -->
+      <!-- The Dedicated Graph Panel -->
+      <div class="extension-panel graph-panel-view lavish-container" id="graphPanel-${index}" style="display:none; padding: 8px 12px; max-height:400px; overflow: hidden;">
+        <div class="graph-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+          <label class="label-text" style="font-size: 12px;">Advanced Search Analytics</label>
+        </div>
+        <div class="graph-container" style="flex: 1; height: 120px; padding: 2px;">
+          <canvas id="chartCanvas-${index}" width="600" height="120"></canvas>
+        </div>
+      </div>
+
+      <!-- The Collapsible Config Extension UI -->
       <div class="extension-panel lavish-container" id="panel-${index}" style="display:none; overflow-y:auto; padding: 10px; max-height:400px;">
         
         <div id="authSection-${index}" style="text-align:center;">
@@ -385,15 +398,6 @@ async function startSession(profileDirs) {
             </div>
           </div>
           
-          <div class="control-section graph-wrapper">
-            <div class="graph-header">
-              <label class="label-text">Live Search Latency</label>
-            </div>
-            <div class="graph-container">
-              <canvas id="chartCanvas-${index}" width="600" height="300"></canvas>
-            </div>
-          </div>
-
           <div class="current-query-section">
             <label class="label-text">Current Query:</label>
             <div class="current-query-box" id="currentQuery-${index}">Ready...</div>
@@ -426,20 +430,38 @@ async function startSession(profileDirs) {
     
     dom.webviewGrid.appendChild(wrapper);
 
-    // Setup Toggle Logic
+    // Setup Toggle Logic for Config Panel
     const toggleBtn = wrapper.querySelector(`#toggle-${index}`);
     const panel = wrapper.querySelector(`#panel-${index}`);
+    const toggleGraphBtn = wrapper.querySelector(`#toggleGraph-${index}`);
+    const graphPanel = wrapper.querySelector(`#graphPanel-${index}`);
+
     toggleBtn.addEventListener('click', () => {
       if (panel.style.display === 'none') {
         panel.style.display = 'block';
+        graphPanel.style.display = 'none'; // Ensure only one panel is open
         toggleBtn.classList.add('active');
-        // Force chart to resize correctly after becoming visible
-        if (extensionInstances[dir] && extensionInstances[dir].chart) {
-           extensionInstances[dir].chart.resize();
-        }
+        toggleGraphBtn.classList.remove('active');
       } else {
         panel.style.display = 'none';
         toggleBtn.classList.remove('active');
+      }
+    });
+
+    // Setup Toggle Logic for Graph Panel
+    toggleGraphBtn.addEventListener('click', () => {
+      if (graphPanel.style.display === 'none') {
+        graphPanel.style.display = 'block';
+        panel.style.display = 'none'; // Ensure only one panel is open
+        toggleGraphBtn.classList.add('active');
+        toggleBtn.classList.remove('active');
+        // Force chart to draw when becoming visible
+        if (extensionInstances[dir] && typeof extensionInstances[dir].drawCustomGraph === 'function') {
+           extensionInstances[dir].drawCustomGraph();
+        }
+      } else {
+        graphPanel.style.display = 'none';
+        toggleGraphBtn.classList.remove('active');
       }
     });
 
@@ -450,16 +472,15 @@ async function startSession(profileDirs) {
     webviewEl.addEventListener('dom-ready', () => {
       webviewEl.insertCSS('::-webkit-scrollbar { display: none !important; }');
       
-      // Auto-scale zoom based on the wrapper width
+      // Auto-scale zoom based on the wrapper width for both webview and extension overlay
       const resizeObserver = new ResizeObserver(entries => {
         for (let entry of entries) {
            const width = entry.contentRect.width;
-           // If width is 800px or more, zoom is 1.0. If width is 400px, zoom is 0.5.
            let zoom = width / 800;
            if (zoom > 1.0) zoom = 1.0;
            if (zoom < 0.25) zoom = 0.25;
            try {
-             webviewEl.setZoomFactor(zoom);
+              webviewEl.setZoomFactor(zoom);
            } catch(e) {}
         }
       });

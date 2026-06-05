@@ -49,49 +49,163 @@ class ExtensionInstance {
     
     this.initChart();
     this.bindEvents();
+    
+    // Auto-unlock with the provided test API key
+    setTimeout(() => {
+      if (this.ui.apiKeyInput) {
+        this.ui.apiKeyInput.value = '@Test01';
+        this.ui.btnUnlock.click();
+      }
+    }, 300);
   }
   
   initChart() {
-    if (this.ui.chartCanvas && window.Chart) {
-      const ctx = this.ui.chartCanvas.getContext('2d');
-      this.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [{
-            label: 'Delay (s)',
-            data: [],
-            borderColor: '#0277bd',
-            backgroundColor: 'rgba(2, 119, 189, 0.2)',
-            borderWidth: 2,
-            tension: 0.3,
-            fill: true,
-            pointBackgroundColor: '#0277bd',
-            pointRadius: 3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: { duration: 400 },
-          scales: {
-            y: { beginAtZero: true, suggestedMax: 15, grid: { color: 'rgba(0,0,0,0.1)' } },
-            x: { grid: { display: false } }
-          },
-          plugins: { legend: { display: false } }
-        }
-      });
-    }
+    this.drawCustomGraph();
   }
 
   updateChart(delaySec) {
-    if (!this.chart) return;
-    this.chartData.push(delaySec);
+    this.chartData.push(parseFloat(delaySec));
     if (this.chartData.length > 20) this.chartData.shift();
+    this.drawCustomGraph();
+  }
+
+  drawCustomGraph() {
+    const canvas = this.ui.chartCanvas;
+    if (!canvas) return;
     
-    this.chart.data.labels = this.chartData.map((_, i) => i + 1);
-    this.chart.data.datasets[0].data = this.chartData;
-    this.chart.update();
+    // Support responsive resizing inside zoomed containers
+    const parent = canvas.parentElement;
+    if (parent.clientWidth > 0 && parent.clientHeight > 0) {
+       // Only set the internal coordinate space. 
+       // DO NOT set canvas.style.width because it prevents the flex container from shrinking!
+       canvas.width = parent.clientWidth;
+       canvas.height = parent.clientHeight;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    
+    if (this.chartData.length === 0) return;
+
+    // Calculate max value with some padding
+    const maxVal = Math.max(15, ...this.chartData) * 1.2;
+    
+    // ─── DRAW GRID & LABELS ───
+    ctx.lineWidth = 1;
+    ctx.font = '12px "Segoe UI", Arial';
+    
+    // Horizontal Grid Lines
+    for (let i = 0; i <= 4; i++) {
+      const y = h - (i * (h / 4));
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0, 176, 255, 0.1)';
+      ctx.moveTo(35, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#0277bd';
+      const labelVal = Math.round((i * (maxVal / 4)));
+      const textY = i === 4 ? y + 12 : y - 4; 
+      ctx.fillText(labelVal + "s", 2, textY); 
+    }
+
+    const xStep = (w - 40) / 19; // 20 maxPoints - 1
+    const startX = 35;
+
+    // Vertical Grid Lines
+    for (let i = 0; i < 20; i++) {
+      const x = startX + (i * xStep);
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0, 176, 255, 0.05)';
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+
+    if (this.chartData.length < 2) return;
+
+    // ─── DATA CALCULATION ───
+    const points = this.chartData.map((val, i) => {
+      return { x: startX + (i * xStep), y: h - ((val / maxVal) * h), val: val };
+    });
+
+    // Calculate 3-point Simple Moving Average (Trendline)
+    const smaPoints = [];
+    for (let i = 0; i < this.chartData.length; i++) {
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - 2); j <= i; j++) {
+        sum += this.chartData[j];
+        count++;
+      }
+      const avg = sum / count;
+      smaPoints.push({ x: startX + (i * xStep), y: h - ((avg / maxVal) * h) });
+    }
+
+    // ─── DRAW LATENCY AREA FILL ───
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(0, 176, 255, 0.4)');
+    grad.addColorStop(1, 'rgba(0, 176, 255, 0.0)');
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, h);
+    points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(points[points.length - 1].x, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // ─── DRAW LATENCY CURVE ───
+    ctx.beginPath();
+    ctx.strokeStyle = '#00b0ff';
+    ctx.lineWidth = 2.5;
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 0; i < points.length - 1; i++) {
+       const p0 = points[i];
+       const p1 = points[i + 1];
+       const midX = (p0.x + p1.x) / 2;
+       const midY = (p0.y + p1.y) / 2;
+       ctx.quadraticCurveTo(p0.x, p0.y, midX, midY); 
+    }
+    ctx.lineTo(points[points.length-1].x, points[points.length-1].y);
+    ctx.stroke();
+
+    // ─── DRAW SMA TRENDLINE ───
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 152, 0, 0.8)'; // Orange trendline
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]); // Dashed line for trend
+    ctx.moveTo(smaPoints[0].x, smaPoints[0].y);
+    for (let i = 0; i < smaPoints.length - 1; i++) {
+       const p0 = smaPoints[i];
+       const p1 = smaPoints[i + 1];
+       const midX = (p0.x + p1.x) / 2;
+       const midY = (p0.y + p1.y) / 2;
+       ctx.quadraticCurveTo(p0.x, p0.y, midX, midY); 
+    }
+    ctx.lineTo(smaPoints[smaPoints.length-1].x, smaPoints[smaPoints.length-1].y);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset dash
+
+    // ─── DRAW DATA POINTS ───
+    points.forEach((p, i) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#00b0ff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // ─── DRAW LEGEND ───
+    ctx.font = '11px "Segoe UI", Arial';
+    ctx.fillStyle = '#0277bd';
+    ctx.fillText("● Raw Latency", w - 160, 20);
+    ctx.fillStyle = '#ff9800';
+    ctx.fillText("- - 3-Search Trend", w - 160, 35);
   }
 
   bindEvents() {
