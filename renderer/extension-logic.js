@@ -75,16 +75,16 @@ class ExtensionInstance {
     
     // Support responsive resizing inside zoomed containers
     const parent = canvas.parentElement;
+    const dpr = window.devicePixelRatio || 1;
     if (parent.clientWidth > 0 && parent.clientHeight > 0) {
-       // Only set the internal coordinate space. 
-       // DO NOT set canvas.style.width because it prevents the flex container from shrinking!
-       canvas.width = parent.clientWidth;
-       canvas.height = parent.clientHeight;
+       canvas.width = parent.clientWidth * dpr;
+       canvas.height = parent.clientHeight * dpr;
     }
     
     const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    const h = canvas.height;
+    ctx.scale(dpr, dpr);
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
     ctx.clearRect(0, 0, w, h);
     
     if (this.chartData.length === 0) return;
@@ -96,7 +96,7 @@ class ExtensionInstance {
     ctx.lineWidth = 1;
     ctx.font = '12px "Segoe UI", Arial';
     
-    // Horizontal Grid Lines
+    // Horizontal Grid Lines & Y-Axis Labels
     for (let i = 0; i <= 4; i++) {
       const y = h - (i * (h / 4));
       ctx.beginPath();
@@ -108,13 +108,23 @@ class ExtensionInstance {
       ctx.fillStyle = '#0277bd';
       const labelVal = Math.round((i * (maxVal / 4)));
       const textY = i === 4 ? y + 12 : y - 4; 
-      ctx.fillText(labelVal + "s", 2, textY); 
+      ctx.fillText(labelVal + "s", 5, textY); 
     }
+    
+    // Y-Axis Title
+    ctx.save();
+    ctx.translate(10, h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#005b9f';
+    ctx.font = 'bold 10px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText("Time (s)", 0, 0);
+    ctx.restore();
 
     const xStep = (w - 40) / 19; // 20 maxPoints - 1
     const startX = 35;
 
-    // Vertical Grid Lines
+    // Vertical Grid Lines & X-Axis Labels
     for (let i = 0; i < 20; i++) {
       const x = startX + (i * xStep);
       ctx.beginPath();
@@ -122,7 +132,20 @@ class ExtensionInstance {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, h);
       ctx.stroke();
+      
+      if (i % 4 === 0) {
+         ctx.fillStyle = '#0277bd';
+         ctx.font = '10px "Segoe UI", Arial';
+         ctx.fillText(i + 1, x - 3, h - 5);
+      }
     }
+    
+    // X-Axis Title
+    ctx.fillStyle = '#005b9f';
+    ctx.font = 'bold 10px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText("Searches ->", w / 2, h - 2);
+    ctx.textAlign = 'left'; // reset
 
     if (this.chartData.length < 2) return;
 
@@ -209,6 +232,27 @@ class ExtensionInstance {
   }
 
   bindEvents() {
+    const pKey = this.profileDir; // Unique key for this profile
+
+    // Load persistent profile-specific settings
+    const savedDelay = localStorage.getItem(`delay_${pKey}`);
+    if (savedDelay) {
+      this.ui.delaySlider.value = savedDelay;
+      if (this.ui.delayValue) this.ui.delayValue.textContent = savedDelay;
+    }
+
+    const savedStart = localStorage.getItem(`startFrom_${pKey}`);
+    if (savedStart) {
+      this.ui.startFromInput.value = savedStart;
+    }
+
+    const savedApi = localStorage.getItem(`apiKey_${pKey}`);
+    if (savedApi) {
+      this.ui.apiKeyInput.value = savedApi;
+      // Delay auto-unlock slightly to ensure UI is ready
+      setTimeout(() => this.ui.btnUnlock.click(), 100);
+    }
+
     this.ui.btnUnlock.addEventListener('click', async () => {
       const key = this.ui.apiKeyInput.value.trim();
       if (!key) return;
@@ -217,11 +261,15 @@ class ExtensionInstance {
         this.token = await this.fetchToken(key);
         this.ui.authSection.style.display = 'none';
         this.ui.mainSection.style.display = 'block';
-        localStorage.setItem('typerApiKey', key);
+        localStorage.setItem(`apiKey_${pKey}`, key); // Save uniquely
         this.refreshQueries(key);
       } catch (e) {
         this.ui.statusMessage.textContent = "Invalid API Key";
       }
+    });
+
+    this.ui.apiKeyInput.addEventListener('change', (e) => {
+      localStorage.setItem(`apiKey_${pKey}`, e.target.value.trim());
     });
 
     this.ui.btnStart.addEventListener('click', () => {
@@ -233,6 +281,10 @@ class ExtensionInstance {
       }
     });
 
+    this.ui.startFromInput.addEventListener('change', (e) => {
+      localStorage.setItem(`startFrom_${pKey}`, e.target.value);
+    });
+
     this.ui.btnFlash.addEventListener('click', () => {
       if (!this.isRunning) {
         const startFrom = parseInt(this.ui.startFromInput.value) || 1;
@@ -241,20 +293,17 @@ class ExtensionInstance {
     });
     
     this.ui.delaySlider.addEventListener('input', (e) => {
-      this.ui.delayValue.textContent = e.target.value;
+      if (this.ui.delayValue) this.ui.delayValue.textContent = e.target.value;
+    });
+
+    this.ui.delaySlider.addEventListener('change', (e) => {
+      localStorage.setItem(`delay_${pKey}`, e.target.value);
     });
     
     this.ui.btnRefresh.addEventListener('click', () => {
-      const key = localStorage.getItem('typerApiKey');
+      const key = localStorage.getItem(`apiKey_${pKey}`);
       if (key) this.refreshQueries(key);
     });
-
-    // Auto-login check
-    const savedKey = localStorage.getItem('typerApiKey');
-    if (savedKey) {
-      this.ui.apiKeyInput.value = savedKey;
-      this.ui.btnUnlock.click();
-    }
   }
 
   async fetchToken(key) {
@@ -303,7 +352,7 @@ class ExtensionInstance {
 
   async startSearching(startFromIndex = 0, isFlash = false) {
     if (this.queries.length === 0) {
-      const key = localStorage.getItem('typerApiKey');
+      const key = localStorage.getItem(`apiKey_${this.profileDir}`);
       await this.refreshQueries(key || 'fallback');
     }
     
@@ -325,8 +374,11 @@ class ExtensionInstance {
       this.ui.progressBar.style.width = `${pct}%`;
       this.ui.progressPct.textContent = `${pct}%`;
 
+      let latency = 0;
       try {
+        const t0 = performance.now();
         await this.typeQueryInWebview(query, isFlash);
+        latency = (performance.now() - t0) / 1000;
       } catch (e) {
         console.error("Search error:", e);
       }
@@ -336,6 +388,11 @@ class ExtensionInstance {
       
       if (!this.isRunning) break;
       
+      // Plot the actual search execution latency
+      if (latency > 0) {
+        this.updateChart(latency.toFixed(1));
+      }
+      
       // Delay
       let delaySec = isFlash ? 3 : parseInt(this.ui.delaySlider.value);
       if (!isFlash) {
@@ -343,7 +400,6 @@ class ExtensionInstance {
          delaySec = delaySec * (0.8 + Math.random() * 0.4);
       }
       
-      this.updateChart(delaySec.toFixed(1));
       await this.waitChunked(delaySec * 1000);
     }
     
