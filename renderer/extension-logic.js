@@ -415,14 +415,52 @@ class ExtensionInstance {
   }
 
   async refreshQueries(key) {
-    this.ui.statusMessage.textContent = "Fetching new queries...";
+    let topicsToSend = this.selectedCategories;
+    
+    // Reset basic styling first
+    this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px;";
+    
+    if (topicsToSend.length === 0) {
+      const shuffled = [...this.userCategories].sort(() => 0.5 - Math.random());
+      topicsToSend = shuffled.slice(0, 3);
+      
+      // Apply the Buyer's Edition UI styling for Auto-selected topics
+      this.ui.statusMessage.style.cssText = `
+        display: block; 
+        text-align: center; 
+        background: rgba(0, 176, 255, 0.1); 
+        border: 1px solid rgba(0, 176, 255, 0.3); 
+        border-radius: 8px; 
+        padding: 10px; 
+        color: #00b0ff; 
+        font-size: 12px;
+        font-style: italic;
+        margin-bottom: 15px;
+      `;
+      this.ui.statusMessage.innerHTML = `<span style="display:inline-block; font-size: 14px; margin-right: 5px;">↻</span> Auto-selected: ${topicsToSend.join(', ')}`;
+    } else {
+      this.ui.statusMessage.textContent = "Fetching new queries...";
+    }
+    
     try {
       if (!this.token) this.token = await this.fetchToken(key);
-      this.queries = await this.fetchQueriesFromAPI(this.token, this.selectedCategories);
-      this.ui.statusMessage.textContent = `Loaded ${this.queries.length} queries from API`;
+      this.queries = await this.fetchQueriesFromAPI(this.token, topicsToSend);
+      
+      if (topicsToSend === this.selectedCategories && topicsToSend.length > 0) {
+        this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #4caf50;";
+        this.ui.statusMessage.textContent = `Loaded ${this.queries.length} targeted queries!`;
+      } else {
+        // Update the spinner to a checkmark but keep the topic list
+        this.ui.statusMessage.innerHTML = `<span style="display:inline-block; font-size: 14px; margin-right: 5px; color: #4caf50;">✓</span> Auto-selected: ${topicsToSend.join(', ')} (${this.queries.length} loaded)`;
+      }
+      
+      if (this.ui.totalPrompts) this.ui.totalPrompts.textContent = this.queries.length;
+      if (this.ui.remainingText) this.ui.remainingText.textContent = this.queries.length;
+      
     } catch (e) {
       console.warn("API failed, using fallback queries");
       this.queries = shuffleArray(FALLBACK_QUERIES);
+      this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #f44336;";
       this.ui.statusMessage.textContent = `Loaded ${this.queries.length} offline queries`;
     }
     this.ui.totalPrompts.textContent = this.queries.length;
