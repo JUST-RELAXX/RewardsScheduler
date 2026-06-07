@@ -47,6 +47,23 @@ class ExtensionInstance {
     this.chart = null;
     this.chartData = [];
     
+    // Topic System State
+    this.defaultCategories = [
+      "Air Quality Index", "Geopolitics News", "Satellite Traffic", "Gold Prices", "NFT Floor Prices", "AI Hardware Reviews",
+      "VR Game Releases", "Streaming Trends", "Influencer Scandals", "Deepfake Detection", "Indie Games", "Mobile Esports",
+      "Webtoons", "Light Novels", "Graphic Novels", "Audiobook Hits", "Vinyl Sales", "Immersive Theater", "Art Biennales",
+      "Slow Travel", "Train Vacations", "Eco-Resorts", "Ultralight Packing", "Wild Camping", "Meal Prep Ideas",
+      "Plant-Based Meat", "Michelin Guide", "Specialty Tea", "Zero-Proof Spirits", "Biohacking Tips", "Somatic Yoga", 
+      "Intermittent Fasting", "Digital Detox", "Sound Bathing", "Breathwork", "Upcycling Ideas", "Biophilic Design", 
+      "Smart Irrigation", "Aquascaping", "Cat Behavior", "Reptile Care", "Co-living Spaces", "Solar Incentives", "Gig Economy", 
+      "Remote Work Skills", "Passion Projects", "High-Yield Savings", "Crypto Tax Laws", "Labor Rights", "Voting Records",
+      "Quantum Physics", "Mars Mission Updates", "Local Folklore", "Drone Photography", "Digital Art", "Sustainable Fabrics",
+      "Vintage Revival", "Skincare Science", "Hydrogen Cars", "Autonomous Shuttles", "Electric Bikes", "Micro-Mobility"
+    ];
+    this.userCategories = [];
+    this.selectedCategories = [];
+    
+    this.initCategories();
     this.initChart();
     this.bindEvents();
     
@@ -59,6 +76,58 @@ class ExtensionInstance {
     }, 300);
   }
   
+  initCategories() {
+    const pKey = this.profileDir;
+    const savedCustom = localStorage.getItem(`customCategories_${pKey}`);
+    if (savedCustom) {
+      try { this.userCategories = JSON.parse(savedCustom); } catch(e) {}
+    } else {
+      this.userCategories = [...this.defaultCategories];
+    }
+    
+    const savedSelected = localStorage.getItem(`selectedCategories_${pKey}`);
+    if (savedSelected) {
+      try { this.selectedCategories = JSON.parse(savedSelected); } catch(e) {}
+    }
+    this.renderCategories();
+  }
+
+  renderCategories() {
+    if (!this.ui.categoryContainer) return;
+    this.ui.categoryContainer.innerHTML = '';
+    
+    this.userCategories.forEach(cat => {
+      const isSelected = this.selectedCategories.includes(cat);
+      const span = document.createElement('span');
+      span.textContent = cat;
+      // Replicate the styling from the original extension
+      span.style.cssText = `
+        display: inline-block;
+        padding: 4px 8px;
+        margin: 2px;
+        border-radius: 12px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid ${isSelected ? '#00b0ff' : '#2a2d3e'};
+        background: ${isSelected ? 'rgba(0, 176, 255, 0.2)' : '#1a1c29'};
+        color: ${isSelected ? '#00b0ff' : '#b0bec5'};
+      `;
+      
+      span.addEventListener('click', () => {
+        if (isSelected) {
+          this.selectedCategories = this.selectedCategories.filter(c => c !== cat);
+        } else {
+          this.selectedCategories.push(cat);
+        }
+        localStorage.setItem(`selectedCategories_${this.profileDir}`, JSON.stringify(this.selectedCategories));
+        this.renderCategories();
+      });
+      
+      this.ui.categoryContainer.appendChild(span);
+    });
+  }
+
   initChart() {
     this.drawCustomGraph();
   }
@@ -272,6 +341,20 @@ class ExtensionInstance {
       localStorage.setItem(`apiKey_${pKey}`, e.target.value.trim());
     });
 
+    if (this.ui.addCategoryBtn) {
+      this.ui.addCategoryBtn.addEventListener('click', () => {
+        const val = this.ui.newCategoryInput.value.trim();
+        if (val && !this.userCategories.includes(val)) {
+          this.userCategories.unshift(val);
+          this.selectedCategories.push(val);
+          localStorage.setItem(`customCategories_${pKey}`, JSON.stringify(this.userCategories));
+          localStorage.setItem(`selectedCategories_${pKey}`, JSON.stringify(this.selectedCategories));
+          this.ui.newCategoryInput.value = '';
+          this.renderCategories();
+        }
+      });
+    }
+
     this.ui.btnStart.addEventListener('click', () => {
       if (this.isRunning) {
         this.stopSearching();
@@ -317,8 +400,13 @@ class ExtensionInstance {
     return data.token;
   }
 
-  async fetchQueriesFromAPI(token) {
-    const response = await fetch('https://curiosity-typer.vercel.app/getPrompts', {
+  async fetchQueriesFromAPI(token, topics = []) {
+    let url = 'https://curiosity-typer.vercel.app/getPrompts';
+    if (topics && topics.length > 0) {
+      const topicStr = encodeURIComponent(topics.join(','));
+      url += `?topics=${topicStr}`;
+    }
+    const response = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!response.ok) throw new Error('Fetch failed');
@@ -330,7 +418,7 @@ class ExtensionInstance {
     this.ui.statusMessage.textContent = "Fetching new queries...";
     try {
       if (!this.token) this.token = await this.fetchToken(key);
-      this.queries = await this.fetchQueriesFromAPI(this.token);
+      this.queries = await this.fetchQueriesFromAPI(this.token, this.selectedCategories);
       this.ui.statusMessage.textContent = `Loaded ${this.queries.length} queries from API`;
     } catch (e) {
       console.warn("API failed, using fallback queries");

@@ -367,6 +367,8 @@ async function startSession(profileDirs) {
       <!-- The Collapsible Config Extension UI -->
       <div class="extension-panel lavish-container" id="panel-${index}" style="display:none; overflow-y:auto; padding: 10px; max-height:400px;">
         
+        <h1 style="text-align:center; font-size: 18px; margin-top: 0; color: #00b0ff;">AUTO TYPER(v2.3)</h1>
+
         <div id="authSection-${index}" style="text-align:center;">
           <input type="text" id="apiKey-${index}" placeholder="Enter API Key to Unlock" class="input-field">
           <button id="btnUnlock-${index}" class="btn">Unlock</button>
@@ -415,6 +417,16 @@ async function startSession(profileDirs) {
             <div class="stat-row">
               <span class="stat-label">Remaining:</span>
               <span class="stat-value" id="remainingText-${index}">0</span>
+            </div>
+          </div>
+
+          <div class="control-section" style="margin-top: 15px;">
+            <label class="label-text">Choose Topics (Diversify History) ✨</label>
+            <div id="categoryContainer-${index}" class="category-wrapper" style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px;">
+            </div>
+            <div class="custom-category-input" style="display: flex; gap: 5px;">
+               <input type="text" id="newCategoryInput-${index}" placeholder="+ Add your desire..." class="input-field" style="margin:0; font-size: 12px; height: 32px; flex: 1;">
+               <button id="addCategoryBtn-${index}" class="btn secondary-btn" style="width: auto; margin:0; height: 32px; padding: 0 12px;">Add</button>
             </div>
           </div>
           
@@ -506,7 +518,10 @@ async function startSession(profileDirs) {
       countText: wrapper.querySelector(`#countText-${index}`),
       totalPrompts: wrapper.querySelector(`#totalPrompts-${index}`),
       remainingText: wrapper.querySelector(`#remainingText-${index}`),
-      btnRefresh: wrapper.querySelector(`#btnRefresh-${index}`)
+      btnRefresh: wrapper.querySelector(`#btnRefresh-${index}`),
+      categoryContainer: wrapper.querySelector(`#categoryContainer-${index}`),
+      newCategoryInput: wrapper.querySelector(`#newCategoryInput-${index}`),
+      addCategoryBtn: wrapper.querySelector(`#addCategoryBtn-${index}`)
     };
 
     // Instantiate and store
