@@ -470,7 +470,7 @@ class ExtensionInstance {
   }
 
   async fetchGroqDelays(limit, ySeconds, minDelay, maxDelay) {
-    const groqKey = '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';
+    const groqKey = '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';
 
     const systemInstruction = `You must generate a list of exactly ${limit} integers between ${minDelay} and ${maxDelay}. 
 CRITICAL RULES:
