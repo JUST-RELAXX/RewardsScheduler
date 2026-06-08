@@ -91,6 +91,20 @@ class Tracker {
     this._save();
   }
 
+  // Mark a profile's searches as undone (manual override)
+  markSearchesUndone(profileDir) {
+    const key = this._todayKey();
+    if (!this.data[key]) this.data[key] = {};
+    if (!this.data[key][profileDir]) {
+      this.data[key][profileDir] = this._defaultStatus();
+    }
+    this.data[key][profileDir].searchesDone = false;
+    this.data[key][profileDir].searchCount = 0;
+    this.data[key][profileDir].inProgress = false;
+    this.data[key][profileDir].completedAt = null;
+    this._save();
+  }
+
   // Mark a profile's 30-min online time as complete
   markOnlineTimeDone(profileDir, minutes = 30) {
     const key = this._todayKey();

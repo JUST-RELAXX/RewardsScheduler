@@ -68,6 +68,7 @@ function createMainWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true,  // Enable <webview> tags for embedded browsers
+      webSecurity: false // Fix CORS issues for API fetches
     },
     icon: path.join(__dirname, 'assets', 'icon.png'),
     show: false,
@@ -307,6 +308,16 @@ function setupIPC() {
     return { success: true };
   });
 
+  ipcMain.handle('mark-profile-done-manual', (_, profileDir, maxSearches) => {
+    tracker.markSearchesDone(profileDir, maxSearches);
+    return { success: true };
+  });
+
+  ipcMain.handle('mark-profile-undone-manual', (_, profileDir) => {
+    tracker.markSearchesUndone(profileDir);
+    return { success: true };
+  });
+
   ipcMain.handle('get-history', (_, days) => {
     return tracker.getHistory(days || 7);
   });
@@ -361,8 +372,18 @@ app.whenReady().then(async () => {
     scheduler.start();
   }
 
-  // Show dashboard on first launch
-  createMainWindow();
+  // Configure app to run on Windows startup in the background
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    args: ['--hidden'] // Flag so we know it was an auto-startup
+  });
+
+  // Show dashboard on first launch UNLESS launched silently via startup
+  if (!process.argv.includes('--hidden')) {
+    createMainWindow();
+  } else {
+    console.log('[Main] Launched silently via Windows Startup');
+  }
 
   console.log('[Main] MS Rewards Scheduler started!');
   console.log(`[Main] Discovered ${profileManager.profiles.length} Edge profiles`);

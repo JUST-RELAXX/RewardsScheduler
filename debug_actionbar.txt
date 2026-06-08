@@ -8,7 +8,8 @@
           <span class="btn-label">Run Selected</span>
         </button>
         <div class="action-spacer"></div>
-        <button class="action-btn ghost" id="btnSettings">
-          <span class="btn-icon">⚙️</span>
+        <button class="action-btn ghost" id="btnRefreshProfiles" title="Refresh Profiles" style="display: flex;">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-label" style="margin-left: 6px;">Refresh</span>
         </button>
       </div>

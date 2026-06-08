@@ -50,8 +50,9 @@
           <span class="btn-label">Run Selected</span>
         </button>
         <div class="action-spacer"></div>
-        <button class="action-btn ghost" id="btnSettings">
-          <span class="btn-icon">⚙️</span>
+        <button class="action-btn ghost" id="btnRefreshProfiles" title="Refresh Profiles">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-label" style="margin-left: 6px;">Refresh</span>
         </button>
       </div>
 
@@ -74,31 +75,164 @@
     <!-- ═══════════════════════════════════════════════════ -->
     <div id="sessionView" style="display:none; flex-direction:column; height:100%;">
 
-      <!-- Session Header Bar -->
-      <div class="session-header-bar">
-        <div class="session-header-left">
-          <span class="session-header-icon">📡</span>
-          <span class="session-header-title">Live Session</span>
-          <span class="session-elapsed-badge" id="sessionElapsed">0:00</span>
+      <!-- ═══════════════════════════════════════════════════ -->
+      <!-- TOP MODULES ROW (Dashboard, Console, Settings)     -->
+      <!-- ═══════════════════════════════════════════════════ -->
+      <div class="top-modules-container">
+        
+        <!-- Module 1: Dashboard -->
+        <div class="module dashboard-module">
+          <div class="module-header">📊 Dashboard</div>
+          <div class="holistic-points-container">
+            <span id="holisticPointsCounter">0</span>
+            <span class="pts-label">PTS</span>
+          </div>
+          <div class="module-subheader">NUTSHELL (Live)</div>
+          <div class="nutshell-list" id="nutshellList">
+            <!-- Populated dynamically: <div>Profile 1: 17/30</div> -->
+          </div>
         </div>
-        <div class="session-header-right">
-          <span class="session-progress-text" id="sessionProgressText">0/0 complete</span>
-          <button class="action-btn danger session-stop-btn" id="btnStopSession">
-            <span class="btn-icon">⏹️</span>
-            <span class="btn-label">Stop</span>
-          </button>
-        </div>
-      </div>
 
-      <!-- Real-time Console -->
-      <div class="console-panel" id="consolePanel">
-        <div class="console-header">
-          <span class="console-title">⌨️ Console</span>
-          <button class="console-toggle" id="btnToggleConsole" title="Toggle console size">▼</button>
+        <!-- Module 2: Console -->
+        <div class="module console-module">
+          <div class="module-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>⌨️ Console</span>
+            <button class="console-toggle" id="btnToggleConsole" title="Toggle console size" style="background: none; border: none; color: #b0bec5; cursor: pointer; font-size: 10px;">▼</button>
+          </div>
+          <div class="console-body" id="consoleBody">
+            <!-- Console log entries appear here -->
+          </div>
         </div>
-        <div class="console-body" id="consoleBody">
-          <!-- Console log entries appear here -->
+
+        <!-- Module 3: Holistic Settings -->
+        <div class="module holistic-module">
+          <div class="module-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>⚙️ Holistic Settings</span>
+            <button class="action-btn danger session-stop-btn" id="btnStopSession" style="padding:4px 8px; font-size:11px; min-height:0; width:auto;">
+              <span class="btn-icon" style="margin-right:4px;">⏹️</span><span class="btn-label">Stop</span>
+            </button>
+          </div>
+          
+          <div class="control-group" style="margin-bottom: 10px;">
+            <label style="font-size: 11px; color: #b0bec5; display: block; margin-bottom: 4px;">Global Completion Time (Mins):</label>
+            <input type="number" id="globalTimeframeInput" class="input-field" placeholder="Default: 30" style="margin: 0; height: 28px; width: 100%; font-size: 14px; color: #ffffff; font-weight: bold; background: rgba(0,0,0,0.2); border: 1px solid var(--border-light); padding-left: 10px;">
+          </div>
+
+          <!-- GLOBAL FLASH BUTTON -->
+          <button id="btnGlobalFlash" class="flash-btn" style="width:100%; margin:10px 0; padding: 12px; font-size: 14px; flex-shrink: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; line-height: 1;">ACTIVATE FLASH ⚡</button>
+
+          <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+            <div style="font-size: 11px; font-weight: bold; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Profile Level Changes</div>
+            
+            <div class="control-group" style="margin-bottom: 10px;">
+              <select id="profileSettingsDropdown" class="input-field" style="height: 24px; padding: 0 4px; font-size: 11px; background: var(--bg-elevated); color: white; border: 1px solid var(--border-light); width: 100%;">
+                <option value="">Select a profile...</option>
+              </select>
+            </div>
+
+            <div id="profileSettingsPanel" style="display: none; padding-right: 5px; font-size: 11px;">
+              
+              <div style="margin-top: 10px; background: rgba(255, 0, 0, 0.05); padding: 8px; border-radius: 6px; border: 1px dashed #ff8000;">
+                <label class="setting-label" style="color: #d50000; font-size: 11px;">⚡ Flash Mode Delay (seconds):</label>
+                <div class="input-group" style="display:flex; align-items:center; gap:8px;">
+                  <input type="range" id="profFlashDelay" min="3" max="15" value="5" class="slider" style="accent-color: #ff0000; flex:1;">
+                  <span class="value-display" id="profFlashDelayValue" style="color: #d50000;">5s</span>
+                </div>
+              </div>
+              <!-- PROFILE FLASH BUTTON -->
+              <button id="btnProfileFlash" class="flash-btn" style="width:100%; margin-top:10px; padding: 10px; font-size: 13px; flex-shrink: 0; min-height: 40px; display: flex; align-items: center; justify-content: center; line-height: 1;">ACTIVATE FLASH ⚡</button>
+              <div id="profFlashCountdown" class="fiery-text" style="display:none; margin-top:10px; text-align:center;">FINISH IN: --</div>
+
+              <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+                <label class="setting-label" style="font-size: 11px; display:block; margin-bottom:4px;">Random delay:</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                  <label style="cursor:pointer;"><input type="radio" name="profRandomDelayToggle" value="off" checked> Off</label>
+                  <label style="cursor:pointer;"><input type="radio" name="profRandomDelayToggle" value="on"> On</label>
+                </div>
+
+                <div id="profRandomDelayControls" style="display:none;">
+                  <label class="setting-label" style="font-size: 11px;">Delay range (seconds):</label>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px;">
+                    <input type="range" id="profRandomDelayMin" min="1" max="60" value="1" class="slider" style="flex:1;">
+                    <span class="value-display" id="profRandomDelayMinValue">1s</span>
+                  </div>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <input type="range" id="profRandomDelayMax" min="1" max="60" value="10" class="slider" style="flex:1;">
+                    <span class="value-display" id="profRandomDelayMaxValue">10s</span>
+                  </div>
+
+                  <label class="setting-label" style="font-size: 11px; margin-top:8px; display:block;">Randomize after how many searches:</label>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px;">
+                    <input type="range" id="profRandomTriggerMin" min="1" max="10" value="1" class="slider" style="flex:1;">
+                    <span class="value-display" id="profRandomTriggerMinValue">1</span>
+                  </div>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <input type="range" id="profRandomTriggerMax" min="1" max="10" value="5" class="slider" style="flex:1;">
+                    <span class="value-display" id="profRandomTriggerMaxValue">5</span>
+                  </div>
+                  <p class="hint" style="font-size:10px; color:#8899aa; margin-top:4px;">Delay will be randomized between the seconds range. The trigger defines after how many searches the delay will be re-picked.</p>
+                </div>
+              </div>
+
+              <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+                <label class="setting-label" style="font-size: 11px; display:block; margin-bottom:4px;">Automize query number:</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                  <label style="cursor:pointer;"><input type="radio" name="profAutomizeQueryToggle" value="off" checked> Off</label>
+                  <label style="cursor:pointer;"><input type="radio" name="profAutomizeQueryToggle" value="on"> On</label>
+                </div>
+
+                <div id="profAutomizeQueryControls" style="display:none;">
+                  <label class="setting-label" style="font-size: 11px;">Start-from range (query numbers):</label>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px;">
+                    <input type="range" id="profAutomizeMin" min="1" max="60" value="1" class="slider" style="flex:1;">
+                    <span class="value-display" id="profAutomizeMinValue">1</span>
+                  </div>
+                  <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <input type="range" id="profAutomizeMax" min="1" max="60" value="5" class="slider" style="flex:1;">
+                    <span class="value-display" id="profAutomizeMaxValue">5</span>
+                  </div>
+                  <p class="hint" style="font-size:10px; color:#8899aa; margin-top:4px;">When enabled, start-from will be randomized between the selected query number range.</p>
+                </div>
+              </div>
+
+              <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+                <label class="setting-label" style="font-size: 11px; display:block; margin-bottom:4px;">Auto-stop Duration (minutes):</label>
+                <input type="number" id="profDefaultAutoStop" min="0" max="240" value="0" placeholder="0 = no limit" class="input-field" style="width:100%; height:24px; padding:0 4px; font-size:11px;">
+
+                <label class="setting-label" style="font-size: 11px; display:block; margin-top:8px; margin-bottom:4px;">Maximum Searches to Complete:</label>
+                <input type="number" id="profMaxSearches" min="0" value="0" placeholder="0 = all available queries" class="input-field" style="width:100%; height:24px; padding:0 4px; font-size:11px;">
+                <p class="hint" style="font-size:10px; color:#8899aa; margin-top:4px;">Set a limit for searches in one session (0 for all).</p>
+              </div>
+
+              <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px;">⌨️ Typing Behavior</div>
+                
+                <label class="setting-label" style="font-size: 11px; display:block; margin-bottom:4px;">Typing Speed (ms per character):</label>
+                <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <input type="range" id="profTypingSpeed" min="50" max="300" value="100" class="slider" style="flex:1;">
+                  <span class="value-display" id="profTypingSpeedValue">100ms</span>
+                </div>
+                
+                <label class="setting-label" style="font-size: 11px; display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom:6px;">
+                  <input type="checkbox" id="profRandomTypingSpeed" class="checkbox">
+                  Add random variation to typing speed
+                </label>
+                
+                <label class="setting-label" style="font-size: 11px; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input type="checkbox" id="profHumanLikeTyping" class="checkbox" checked>
+                  Enable human-like typing simulation
+                </label>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="global-actions" style="display:flex; gap:10px; margin-top: auto;">
+            <button id="btnGlobalRefresh" class="action-btn ghost" style="flex:1; font-size:11px; min-height:0; padding:6px; border:1px solid rgba(255,255,255,0.1); justify-content:center;">🔄 Refresh All</button>
+            <button id="btnGlobalStart" class="action-btn accent" style="flex:1; font-size:11px; min-height:0; padding:6px; justify-content:center; background: #00b0ff; color: #fff;">▶ START GLOBAL</button>
+          </div>
         </div>
+
       </div>
 
       <!-- Webview Grid -->
@@ -115,6 +249,11 @@
           <button class="close-settings" id="btnCloseSettings">✕</button>
         </div>
         <div class="settings-body">
+          <div class="setting-group">
+            <label class="setting-label">Groq API Key (AI Pacing)</label>
+            <input type="text" id="setGroqApiKey" class="setting-input" placeholder="gsk_..." style="font-family: monospace;">
+            <span class="setting-hint">Used for mathematically perfect randomized session pacing.</span>
+          </div>
           <div class="setting-group">
             <label class="setting-label">Searches per Account</label>
             <input type="number" id="setSearchCount" class="setting-input" value="60" min="1" max="100">
@@ -138,8 +277,13 @@
       </div>
     </div>
 
-  </div>
+    <!-- Custom Context Menu -->
+    <div id="profileContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
+      <div class="ctx-item" id="ctxMarkDone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✅ Mark as done</div>
+      <div class="ctx-item" id="ctxMarkUndone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">❌ Mark as pending</div>
+    </div>
 
-  <script src="app.js"></script>
-</body>
+    <!-- Engine Script -->
+    <script src="app.js"></script>
+  </body>
 </html>

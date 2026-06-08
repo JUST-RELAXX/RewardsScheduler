@@ -32,14 +32,20 @@ function initDOM() {
   [
     'liveClock', 'statusIcon', 'statusText', 'statusTimer',
     'accountsGrid', 'doneCounter', 'btnRunAll', 'btnRunSelected',
-    'btnSettings', 'closePromptModal', 'closePromptText',
+    'btnRefreshProfiles', 'closePromptModal', 'closePromptText',
     'btnCloseMistake', 'btnCloseIntentional', 'settingsOverlay',
     'btnCloseSettings', 'btnSaveSettings', 'setSearchCount',
     'setConcurrent', 'setDelay', 'setDelayValue', 'setReminders',
     'btnMinimize', 'btnClose', 'dashboardView', 'sessionView',
-    'sessionElapsed', 'sessionProgressText', 'btnStopSession',
-    'consolePanel', 'consoleBody', 'btnToggleConsole', 'webviewGrid'
+    'btnStopSession', 'consoleBody', 'btnToggleConsole', 'webviewGrid',
+    'holisticPointsCounter', 'nutshellList', 'globalTimeframeInput', 
+    'btnGlobalRefresh', 'btnGlobalStart', 'setGroqApiKey',
+    'btnGlobalFlash', 'btnProfileFlash', 'profFlashCountdown'
   ].forEach(id => { dom[id] = $(id); });
+  
+  if (dom.setGroqApiKey) {
+    dom.setGroqApiKey.value = localStorage.getItem('GROQ_API_KEY') || '';
+  }
 }
 
 function on(el, event, handler) {
@@ -93,13 +99,18 @@ async function loadProfiles(retries = 3) {
       p.inProgress = s.inProgress || false;
       p.isConnected = s.isConnected || false;
       p.executed = 0;
-      p.total = 60;
+      
+      const customMaxStr = localStorage.getItem('customMaxPoints_' + p.dir);
+      const customMax = customMaxStr ? parseInt(customMaxStr) : null;
+      p.total = customMax ? Math.ceil(customMax / 3) : 60;
+      
       p.searchStatus = p.searchesDone ? 'done' : 'pending';
     });
 
     profilesLoaded = profiles.length > 0;
     renderGrid();
     updateDoneCounter();
+    updateProfileDropdown();
   } catch (err) {
     console.error('[Dashboard] loadProfiles error:', err);
     if (retries > 0) {
@@ -141,7 +152,7 @@ function renderGrid() {
     else if (p.searchStatus === 'searching') { badgeClass = 'badge-searching'; badgeText = '🔍 Searching'; }
     else if (p.searchStatus === 'keepalive') { badgeClass = 'badge-keepalive'; badgeText = '💤 Keep-Alive'; }
 
-    const pct = p.searchesDone ? 100 : (p.total > 0 ? Math.round((p.executed / p.total) * 100) : 0);
+    const pct = p.searchesDone ? 100 : (p.total > 0 ? Math.min(100, Math.round((p.executed / p.total) * 100)) : 0);
     const progressClass = p.searchesDone ? 'done' : (p.searchStatus === 'searching' ? 'active' : '');
 
     card.innerHTML = `
@@ -155,7 +166,7 @@ function renderGrid() {
         <div class="progress-track">
           <div class="progress-fill ${progressClass}" style="width:${pct}%"></div>
         </div>
-        <span class="progress-text">${p.searchesDone ? p.searchCount : p.executed}/${p.total}</span>
+        <span class="progress-text">${Math.min(p.searchesDone ? (p.searchCount * 3) : (p.executed * 3), p.total * 3)}/${p.total * 3}</span>
       </div>
       <div class="card-meta">
         <div class="online-timer">
@@ -166,7 +177,7 @@ function renderGrid() {
       </div>`;
 
     card.addEventListener('click', () => {
-      if (p.searchesDone || sessionRunning) return;
+      if (sessionRunning) return;
       if (selectedProfiles.has(p.dir)) {
         selectedProfiles.delete(p.dir);
         card.classList.remove('selected');
@@ -191,6 +202,7 @@ function setupUI() {
   // FORCE BUTTONS TO SHOW
   if (dom.btnRunAll) dom.btnRunAll.style.display = 'flex';
   if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
+  if (dom.btnRefreshProfiles) dom.btnRefreshProfiles.style.display = 'flex';
 
   // Run All
   on(dom.btnRunAll, 'click', async () => {
@@ -247,6 +259,59 @@ function setupUI() {
     pendingCloseProfile = null;
   });
 
+  // Context Menu Setup
+  let contextMenuTargetDir = null;
+  const ctxMenu = document.getElementById('profileContextMenu');
+  if (ctxMenu) {
+      document.addEventListener('contextmenu', (e) => {
+        const card = e.target.closest('.account-card');
+        if (card && !sessionRunning) {
+          e.preventDefault();
+          contextMenuTargetDir = card.dataset.dir;
+          
+          ctxMenu.style.display = 'block';
+          ctxMenu.style.left = e.pageX + 'px';
+          ctxMenu.style.top = e.pageY + 'px';
+          
+          const p = profiles.find(pr => pr.dir === contextMenuTargetDir);
+          if (p && p.searchesDone) {
+             document.getElementById('ctxMarkDone').style.display = 'none';
+             document.getElementById('ctxMarkUndone').style.display = 'block';
+          } else {
+             document.getElementById('ctxMarkDone').style.display = 'block';
+             document.getElementById('ctxMarkUndone').style.display = 'none';
+          }
+        } else {
+          ctxMenu.style.display = 'none';
+        }
+      });
+
+      document.addEventListener('click', () => {
+        ctxMenu.style.display = 'none';
+      });
+
+      document.getElementById('ctxMarkDone')?.addEventListener('click', async () => {
+        if (contextMenuTargetDir) {
+          const p = profiles.find(pr => pr.dir === contextMenuTargetDir);
+          await ipcRenderer.invoke('mark-profile-done-manual', contextMenuTargetDir, p ? p.total : 60);
+          loadProfiles();
+        }
+      });
+
+      document.getElementById('ctxMarkUndone')?.addEventListener('click', async () => {
+        if (contextMenuTargetDir) {
+          await ipcRenderer.invoke('mark-profile-undone-manual', contextMenuTargetDir);
+          loadProfiles();
+        }
+      });
+      
+      // Inject hover styles
+      const style = document.createElement('style');
+      style.innerHTML = '.ctx-item:hover { background: #2a354a; }';
+      document.head.appendChild(style);
+  }
+  // Context menu logic ends here.
+
   on(dom.btnCloseIntentional, 'click', () => {
     if (pendingCloseProfile) {
       ipcRenderer.invoke('respond-to-close', pendingCloseProfile, false);
@@ -256,15 +321,12 @@ function setupUI() {
     pendingCloseProfile = null;
   });
 
-  // Settings
-  on(dom.btnSettings, 'click', async () => {
-    const settings = await ipcRenderer.invoke('get-settings');
-    if (dom.setSearchCount) dom.setSearchCount.value = settings.searchesPerAccount || 60;
-    if (dom.setConcurrent) dom.setConcurrent.value = settings.maxConcurrentSearches || 2;
-    if (dom.setDelay) dom.setDelay.value = Math.floor((settings.searchDelay || 10000) / 1000);
-    if (dom.setDelayValue) dom.setDelayValue.textContent = dom.setDelay.value + 's';
-    if (dom.setReminders) dom.setReminders.checked = settings.reminderEnabled !== false;
-    if (dom.settingsOverlay) dom.settingsOverlay.style.display = 'flex';
+  // Settings / Refresh Profiles
+  on(dom.btnRefreshProfiles, 'click', async () => {
+    addLogEntry('Refreshing profiles...', 'info');
+    dom.btnRefreshProfiles.classList.add('spinning'); // optional css animation class if added
+    await loadProfiles();
+    setTimeout(() => dom.btnRefreshProfiles.classList.remove('spinning'), 500);
   });
 
   on(dom.btnCloseSettings, 'click', () => {
@@ -282,6 +344,7 @@ function setupUI() {
       searchDelay: parseInt(dom.setDelay?.value) * 1000 || 10000,
       reminderEnabled: dom.setReminders?.checked ?? true
     });
+    if (dom.setGroqApiKey) localStorage.setItem('GROQ_API_KEY', dom.setGroqApiKey.value.trim());
     if (dom.settingsOverlay) dom.settingsOverlay.style.display = 'none';
     setStatus('✅', 'Settings saved!', 'success');
     setTimeout(() => setStatus('🟢', 'Ready — Select accounts and start your session', 'info'), 3000);
@@ -330,8 +393,16 @@ async function startSession(profileDirs) {
   dom.sessionView.style.display = 'flex';
   dom.consoleBody.innerHTML = '';
   dom.webviewGrid.innerHTML = '';
+  
+  // Clear any existing instances from previous sessions to prevent zombie ghosting
+  for (let key in extensionInstances) {
+      delete extensionInstances[key];
+  }
 
   addLogEntry(`Session started with ${profileDirs.length} profiles`, 'info');
+
+  // Update the Profile Level dropdown immediately with just the running profiles
+  updateProfileDropdown(profileDirs);
 
   profileDirs.forEach((dir, index) => {
     const p = profiles.find(pr => pr.dir === dir);
@@ -432,10 +503,7 @@ async function startSession(profileDirs) {
           
           <button id="btnRefresh-${index}" class="btn secondary-btn">Refresh Prompts</button>
           
-          <div class="control-section" style="text-align: center; margin-top:20px;">
-            <button id="btnFlash-${index}" class="btn flash-btn" style="background: linear-gradient(45deg, #ff9800, #ff5722);">ACTIVATE FLASH ⚡</button>
-          </div>
-          
+          <!-- Flash button removed per user request -->
         </div>
       </div>
     `;
@@ -556,13 +624,147 @@ async function startSession(profileDirs) {
     wrapper.style.minWidth = '240px'; // Prevent it from getting too impossibly tiny
   });
 
+  // Setup Global Holistic Controls
+  if (dom.btnGlobalRefresh) {
+    dom.btnGlobalRefresh.onclick = () => {
+      const globalKey = '@Test01';
+      Object.values(extensionInstances).forEach(inst => {
+        localStorage.setItem(`apiKey_${inst.profileDir}`, globalKey);
+        inst.refreshQueries(globalKey);
+      });
+      addLogEntry("Global Refresh triggered for all profiles.", "info");
+    };
+  }
+
+  if (dom.btnGlobalStart) {
+    dom.btnGlobalStart.onclick = () => {
+      const globalKey = '@Test01';
+      
+      let customMins = parseInt(dom.globalTimeframeInput?.value);
+      if (isNaN(customMins) || customMins <= 0) customMins = null;
+      
+      addLogEntry(`Global START triggered! Enforcing ${customMins ? customMins : '30-40 dynamic'} min timeframe.`, "success");
+      
+      Object.values(extensionInstances).forEach(inst => {
+        localStorage.setItem(`apiKey_${inst.profileDir}`, globalKey);
+        
+        // Randomize number of searches strictly between 15 and 25 as requested
+        const randomizedLimit = Math.floor(Math.random() * (25 - 15 + 1)) + 15;
+        inst.randomizedLimitOverride = randomizedLimit; // Set the override for the instance
+        
+        // Pass the custom timeframe down
+        inst.globalTimeframeMinsOverride = customMins;
+        inst.isGlobalStart = true;
+        
+        inst.startSearching();
+      });
+    };
+  }
+
+  if (dom.btnGlobalFlash) {
+    dom.btnGlobalFlash.onclick = () => {
+      const isStopping = dom.btnGlobalFlash.classList.contains('stop');
+      if (isStopping) {
+        dom.btnGlobalFlash.classList.remove('stop');
+        dom.btnGlobalFlash.textContent = "ACTIVATE FLASH ⚡";
+        Object.values(extensionInstances).forEach(inst => {
+          inst.isRunning = false;
+          inst.updateUIStatus('Stopped');
+        });
+        addLogEntry("Global Flash STOPPED manually.", "warning");
+      } else {
+        dom.btnGlobalFlash.classList.add('stop');
+        dom.btnGlobalFlash.textContent = "STOP FLASH ⚡";
+        addLogEntry("⚡ GLOBAL FLASH TRIGGERED! Bypassing constraints for all profiles...", "success");
+        
+        const globalKey = '@Test01';
+        Object.values(extensionInstances).forEach(inst => {
+          localStorage.setItem(`apiKey_${inst.profileDir}`, globalKey);
+          
+          // Set flash properties
+          inst.isGlobalStart = false; // Disable global pacing
+          inst.startSearching(0, true); // true = isFlash
+        });
+      }
+    };
+  }
+
   sessionTimer = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const m = Math.floor(elapsed / 60);
-    const s = elapsed % 60;
-    if (dom.sessionElapsed) dom.sessionElapsed.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    if (!sessionRunning) return;
+    
+    let totalPoints = 0;
+    let nutshellHTML = '';
+    
+    profileDirs.forEach((dir, i) => {
+       const inst = extensionInstances[dir];
+       if (!inst) return;
+       const pName = profiles.find(pr => pr.dir === dir)?.displayName || `Profile ${i+1}`;
+       
+       const limit = inst.randomizedLimitOverride || (inst.queries ? Math.min(inst.queries.length, 60) : 0);
+       const currentPts = inst.executedCount * 3;
+       
+       const customMax = localStorage.getItem('customMaxPoints_' + dir);
+       const maxPts = customMax ? parseInt(customMax) : (limit * 3);
+       
+       totalPoints += currentPts;
+       
+       let statusColor = '#b0bec5';
+       if (inst.isRunning) statusColor = '#69f0ae'; // active
+       else if (inst.executedCount >= limit && limit > 0) statusColor = '#00b0ff'; // done
+       else if (inst.executedCount > 0 && !inst.isRunning) statusColor = '#ff5252'; // error/halted
+       
+       nutshellHTML += `<div class="nutshell-item">
+          <span style="color:${statusColor}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 60%;" title="${pName}">● ${pName}</span>
+          <span class="nutshell-points" style="font-weight:bold; transition: opacity 0.2s;">${currentPts}/${maxPts}</span>
+          <div class="nutshell-edit-btn" onclick="window.showPointsPrompt('${dir.replace(/\\/g, '\\\\')}', ${maxPts}, '${pName.replace(/'/g, "\\'")}')">✏️ Edit</div>
+       </div>`;
+    });
+    
+    if (dom.holisticPointsCounter) dom.holisticPointsCounter.textContent = totalPoints;
+    if (dom.nutshellList) dom.nutshellList.innerHTML = nutshellHTML;
   }, 1000);
 }
+
+window.showPointsPrompt = function(dir, currentMax, pName) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:#1e2030;padding:20px;border-radius:8px;border:1px solid #00b0ff;color:#fff;width:300px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);';
+  
+  modal.innerHTML = `
+    <h3 style="margin-top:0;font-size:16px;color:#00b0ff;margin-bottom:10px;">Edit Max Points</h3>
+    <p style="font-size:12px;color:#b0bec5;margin-top:0;margin-bottom:15px;">Enter maximum points for <b>${pName}</b>:</p>
+    <input type="number" id="promptInput" value="${currentMax}" style="width:100%;padding:10px;background:#0f111a;border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:4px;margin-bottom:20px;box-sizing:border-box;font-size:14px;outline:none;">
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button id="promptCancel" style="padding:8px 16px;background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:4px;cursor:pointer;transition:background 0.2s;">Cancel</button>
+      <button id="promptSave" style="padding:8px 16px;background:#00b0ff;border:none;color:#000;font-weight:bold;border-radius:4px;cursor:pointer;transition:background 0.2s;">Save</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  const input = modal.querySelector('#promptInput');
+  input.focus();
+  input.select();
+  
+  const close = () => { if (document.body.contains(overlay)) document.body.removeChild(overlay); };
+  
+  modal.querySelector('#promptCancel').onclick = close;
+  modal.querySelector('#promptSave').onclick = () => {
+    const val = parseInt(input.value);
+    if (!isNaN(val)) {
+      localStorage.setItem('customMaxPoints_' + dir, val);
+    }
+    close();
+  };
+  
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') modal.querySelector('#promptSave').click();
+    if (e.key === 'Escape') close();
+  };
+};
 
 function endSessionUI() {
   sessionRunning = false;
@@ -662,6 +864,216 @@ function esc(text) {
   return d.innerHTML;
 }
 
+function updateProfileDropdown(activeDirsOverride = null) {
+  const dropdown = document.getElementById('profileSettingsDropdown');
+  const panel = document.getElementById('profileSettingsPanel');
+  if (!dropdown) return;
+  
+  const currentVal = dropdown.value;
+  dropdown.innerHTML = '<option value="">Select a profile...</option>';
+  
+  // If session is running, only show active profiles. Otherwise show all selected profiles or all profiles.
+  let activeDirs = [];
+  if (activeDirsOverride) {
+    activeDirs = activeDirsOverride;
+  } else if (sessionRunning) {
+    activeDirs = Object.keys(extensionInstances);
+  } else {
+    activeDirs = selectedProfiles.size > 0 ? Array.from(selectedProfiles) : profiles.map(p => p.dir);
+  }
+  
+  activeDirs.forEach(dir => {
+    const p = profiles.find(pr => pr.dir === dir);
+    if (p) {
+      const opt = document.createElement('option');
+      opt.value = p.dir;
+      opt.textContent = p.displayName || p.dir;
+      dropdown.appendChild(opt);
+    }
+  });
+  
+  if (currentVal && activeDirs.includes(currentVal)) {
+    dropdown.value = currentVal;
+  } else if (activeDirs.length === 1) {
+    dropdown.value = activeDirs[0];
+  } else {
+    dropdown.value = '';
+  }
+  
+  // Trigger change event so the panel updates visibility
+  dropdown.dispatchEvent(new Event('change'));
+}
+
+function setupProfileSettings() {
+  const dropdown = document.getElementById('profileSettingsDropdown');
+  const panel = document.getElementById('profileSettingsPanel');
+  if (!dropdown || !panel) return;
+
+  const elements = {
+    flashDelay: document.getElementById('profFlashDelay'),
+    flashDelayValue: document.getElementById('profFlashDelayValue'),
+    randomDelayToggle: document.getElementsByName('profRandomDelayToggle'),
+    randomDelayControls: document.getElementById('profRandomDelayControls'),
+    randomDelayMin: document.getElementById('profRandomDelayMin'),
+    randomDelayMinValue: document.getElementById('profRandomDelayMinValue'),
+    randomDelayMax: document.getElementById('profRandomDelayMax'),
+    randomDelayMaxValue: document.getElementById('profRandomDelayMaxValue'),
+    randomTriggerMin: document.getElementById('profRandomTriggerMin'),
+    randomTriggerMinValue: document.getElementById('profRandomTriggerMinValue'),
+    randomTriggerMax: document.getElementById('profRandomTriggerMax'),
+    randomTriggerMaxValue: document.getElementById('profRandomTriggerMaxValue'),
+    
+    automizeToggle: document.getElementsByName('profAutomizeQueryToggle'),
+    automizeControls: document.getElementById('profAutomizeQueryControls'),
+    automizeMin: document.getElementById('profAutomizeMin'),
+    automizeMinValue: document.getElementById('profAutomizeMinValue'),
+    automizeMax: document.getElementById('profAutomizeMax'),
+    automizeMaxValue: document.getElementById('profAutomizeMaxValue'),
+    
+    autoStop: document.getElementById('profDefaultAutoStop'),
+    maxSearches: document.getElementById('profMaxSearches'),
+    
+    typingSpeed: document.getElementById('profTypingSpeed'),
+    typingSpeedValue: document.getElementById('profTypingSpeedValue'),
+    randomTypingSpeed: document.getElementById('profRandomTypingSpeed'),
+    humanLikeTyping: document.getElementById('profHumanLikeTyping')
+  };
+
+  const loadProfileSettings = (dir) => {
+    if (!dir) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'block';
+
+    const getNum = (key, def) => parseInt(localStorage.getItem(`prof_${dir}_${key}`)) || def;
+    const getBool = (key, def) => {
+      const v = localStorage.getItem(`prof_${dir}_${key}`);
+      return v === null ? def : v === 'true';
+    };
+
+    elements.flashDelay.value = getNum('flashDelay', 5);
+    elements.flashDelayValue.textContent = elements.flashDelay.value + 's';
+    
+    const randomDelay = getBool('randomDelay', false);
+    elements.randomDelayToggle[randomDelay ? 1 : 0].checked = true;
+    elements.randomDelayControls.style.display = randomDelay ? 'block' : 'none';
+    elements.randomDelayMin.value = getNum('randomDelayMin', 1);
+    elements.randomDelayMinValue.textContent = elements.randomDelayMin.value + 's';
+    elements.randomDelayMax.value = getNum('randomDelayMax', 10);
+    elements.randomDelayMaxValue.textContent = elements.randomDelayMax.value + 's';
+    elements.randomTriggerMin.value = getNum('randomTriggerMin', 1);
+    elements.randomTriggerMinValue.textContent = elements.randomTriggerMin.value;
+    elements.randomTriggerMax.value = getNum('randomTriggerMax', 5);
+    elements.randomTriggerMaxValue.textContent = elements.randomTriggerMax.value;
+
+    const automize = getBool('automize', false);
+    elements.automizeToggle[automize ? 1 : 0].checked = true;
+    elements.automizeControls.style.display = automize ? 'block' : 'none';
+    elements.automizeMin.value = getNum('automizeMin', 1);
+    elements.automizeMinValue.textContent = elements.automizeMin.value;
+    elements.automizeMax.value = getNum('automizeMax', 5);
+    elements.automizeMaxValue.textContent = elements.automizeMax.value;
+
+    elements.autoStop.value = getNum('autoStop', 0);
+    elements.maxSearches.value = getNum('maxSearches', 0);
+
+    elements.typingSpeed.value = getNum('typingSpeed', 100);
+    elements.typingSpeedValue.textContent = elements.typingSpeed.value + 'ms';
+    elements.randomTypingSpeed.checked = getBool('randomTypingSpeed', false);
+    elements.humanLikeTyping.checked = getBool('humanLikeTyping', true);
+  };
+
+  const saveProfileSettings = () => {
+    const dir = dropdown.value;
+    if (!dir) return;
+    
+    localStorage.setItem(`prof_${dir}_flashDelay`, elements.flashDelay.value);
+    const randomDelay = elements.randomDelayToggle[1].checked;
+    localStorage.setItem(`prof_${dir}_randomDelay`, randomDelay);
+    localStorage.setItem(`prof_${dir}_randomDelayMin`, elements.randomDelayMin.value);
+    localStorage.setItem(`prof_${dir}_randomDelayMax`, elements.randomDelayMax.value);
+    localStorage.setItem(`prof_${dir}_randomTriggerMin`, elements.randomTriggerMin.value);
+    localStorage.setItem(`prof_${dir}_randomTriggerMax`, elements.randomTriggerMax.value);
+    
+    const automize = elements.automizeToggle[1].checked;
+    localStorage.setItem(`prof_${dir}_automize`, automize);
+    localStorage.setItem(`prof_${dir}_automizeMin`, elements.automizeMin.value);
+    localStorage.setItem(`prof_${dir}_automizeMax`, elements.automizeMax.value);
+    
+    localStorage.setItem(`prof_${dir}_autoStop`, elements.autoStop.value);
+    localStorage.setItem(`prof_${dir}_maxSearches`, elements.maxSearches.value);
+    
+    localStorage.setItem(`prof_${dir}_typingSpeed`, elements.typingSpeed.value);
+    localStorage.setItem(`prof_${dir}_randomTypingSpeed`, elements.randomTypingSpeed.checked);
+    localStorage.setItem(`prof_${dir}_humanLikeTyping`, elements.humanLikeTyping.checked);
+  };
+
+  dropdown.addEventListener('change', () => loadProfileSettings(dropdown.value));
+
+  // Bind input listeners
+  const bindSlider = (input, display, suffix = '') => {
+    input.addEventListener('input', () => {
+      display.textContent = input.value + suffix;
+      saveProfileSettings();
+    });
+  };
+
+  bindSlider(elements.flashDelay, elements.flashDelayValue, 's');
+  bindSlider(elements.randomDelayMin, elements.randomDelayMinValue, 's');
+  bindSlider(elements.randomDelayMax, elements.randomDelayMaxValue, 's');
+  bindSlider(elements.randomTriggerMin, elements.randomTriggerMinValue);
+  bindSlider(elements.randomTriggerMax, elements.randomTriggerMaxValue);
+  bindSlider(elements.automizeMin, elements.automizeMinValue);
+  bindSlider(elements.automizeMax, elements.automizeMaxValue);
+  bindSlider(elements.typingSpeed, elements.typingSpeedValue, 'ms');
+
+  elements.randomDelayToggle.forEach(t => t.addEventListener('change', () => {
+    elements.randomDelayControls.style.display = elements.randomDelayToggle[1].checked ? 'block' : 'none';
+    saveProfileSettings();
+  }));
+
+  elements.automizeToggle.forEach(t => t.addEventListener('change', () => {
+    elements.automizeControls.style.display = elements.automizeToggle[1].checked ? 'block' : 'none';
+    saveProfileSettings();
+  }));
+
+  [elements.autoStop, elements.maxSearches, elements.randomTypingSpeed, elements.humanLikeTyping].forEach(el => {
+    el.addEventListener('change', saveProfileSettings);
+  });
+
+  if (dom.btnProfileFlash) {
+    dom.btnProfileFlash.onclick = () => {
+      const dir = dropdown.value;
+      if (!dir) {
+        addLogEntry("No profile selected for Flash Mode.", "error");
+        return;
+      }
+      const inst = extensionInstances[dir];
+      if (!inst) {
+        addLogEntry("Profile instance not found.", "error");
+        return;
+      }
+
+      const isStopping = dom.btnProfileFlash.classList.contains('stop');
+      if (isStopping) {
+        dom.btnProfileFlash.classList.remove('stop');
+        dom.btnProfileFlash.textContent = "ACTIVATE FLASH ⚡";
+        inst.isRunning = false;
+        inst.updateUIStatus('Stopped');
+        addLogEntry(`Flash Mode STOPPED manually for ${inst.profileDir}.`, "warning");
+      } else {
+        dom.btnProfileFlash.classList.add('stop');
+        dom.btnProfileFlash.textContent = "STOP FLASH ⚡";
+        addLogEntry(`⚡ FLASH MODE TRIGGERED for ${inst.profileDir}! Bypassing normal constraints...`, "success");
+        
+        inst.isGlobalStart = false; // Disable global pacing
+        inst.startSearching(0, true); // true = isFlash
+      }
+    };
+  }
+}
+
 // ─── Init ───
 document.addEventListener('DOMContentLoaded', () => {
   initDOM();
@@ -669,6 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateClock, 1000);
   setupUI();
   setupIPC();
+  setupProfileSettings();
   loadProfiles();
   setInterval(() => { if (!sessionRunning) loadProfiles(); }, 30000);
 
