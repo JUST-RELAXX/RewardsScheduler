@@ -129,6 +129,47 @@ class ExtensionInstance {
   }
 
   initChart() {
+    this.hoverIndex = -1;
+    const canvas = this.ui.chartCanvas;
+    if (canvas && !this.chartEventsAttached) {
+      this.chartEventsAttached = true;
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        
+        if (this.chartData.length > 1) {
+            const w = canvas.parentElement.clientWidth || 300;
+            const marginLeft = 45;
+            const graphW = w - marginLeft - 10;
+            const maxPoints = Math.max(20, this.chartData.length);
+            const xStep = graphW / (maxPoints - 1);
+            
+            let closestDist = Infinity;
+            let closestIdx = -1;
+            
+            for (let i = 0; i < this.chartData.length; i++) {
+               const px = marginLeft + (i * xStep);
+               const dist = Math.abs(px - mouseX);
+               if (dist < closestDist) {
+                   closestDist = dist;
+                   closestIdx = i;
+               }
+            }
+            
+            if (closestDist < 15 && this.hoverIndex !== closestIdx) {
+               this.hoverIndex = closestIdx;
+               this.drawCustomGraph();
+            } else if (closestDist >= 15 && this.hoverIndex !== -1) {
+               this.hoverIndex = -1;
+               this.drawCustomGraph();
+            }
+        }
+      });
+      canvas.addEventListener('mouseleave', () => {
+         this.hoverIndex = -1;
+         this.drawCustomGraph();
+      });
+    }
     this.drawCustomGraph();
   }
 
@@ -318,6 +359,57 @@ class ExtensionInstance {
     ctx.fillStyle = '#e65100'; // Darker orange for light background
     ctx.fillText("- - Trend", marginLeft + graphW - 5, 34);
     ctx.textAlign = 'left'; // Reset
+    
+    // ─── HOVER OVERLAY ───
+    if (this.hoverIndex !== undefined && this.hoverIndex >= 0 && this.hoverIndex < points.length) {
+      const p = points[this.hoverIndex];
+      
+      // Vertical line
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'; // subtle line
+      ctx.lineWidth = 1;
+      ctx.moveTo(p.x, 10);
+      ctx.lineTo(p.x, 10 + graphH);
+      ctx.stroke();
+
+      // Tooltip Box
+      const textVal = `Search ${this.hoverIndex + 1}: ${p.val.toFixed(1)}s`;
+      ctx.font = 'bold 11px "Segoe UI", Arial';
+      const textW = ctx.measureText(textVal).width + 16;
+      const textH = 22;
+      
+      let tooltipX = p.x + 10;
+      if (tooltipX + textW > w) tooltipX = p.x - textW - 10; // flip
+      let tooltipY = p.y - 28;
+      if (tooltipY < 10) tooltipY = p.y + 10;
+      
+      // Box background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+         ctx.roundRect(tooltipX, tooltipY, textW, textH, 4);
+      } else {
+         ctx.rect(tooltipX, tooltipY, textW, textH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 176, 255, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // Box text
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.fillText(textVal, tooltipX + textW/2, tooltipY + 15);
+      
+      // Hover point highlight
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff1744';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
 
   bindEvents() {
@@ -484,6 +576,10 @@ CRITICAL RULES:
       this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #b388ff;";
       this.ui.statusMessage.innerHTML = `🧠 AI Calculating ${limit} perfect delays...`;
       
+      console.log(`[${this.profileDir}] [AI] Formulating system prompt for Groq Llama3 70B model...`);
+      console.log(`[${this.profileDir}] [AI] Constraints: ${limit} searches over ${ySeconds} total seconds (Min: ${minDelay}s, Max: ${maxDelay}s)`);
+      console.log(`[${this.profileDir}] [NET] Transmitting payload to api.groq.com...`);
+
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -497,12 +593,16 @@ CRITICAL RULES:
         })
       });
       
+      console.log(`[${this.profileDir}] [NET] AI Request fulfilled (Status ${response.status})`);
+      
       if (!response.ok) {
+        console.error(`[${this.profileDir}] [AI] HTTP Error: ${response.status}`);
         throw new Error(`Groq API Error: ${response.status}`);
       }
       
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "";
+      console.log(`[${this.profileDir}] [AI] Raw inference payload received: ${content.length} characters`);
       
       // Parse numbers from the output
       const lines = content.split('\n');
@@ -668,26 +768,30 @@ CRITICAL RULES:
        if (!targetMins) targetMins = 30 + Math.random() * 10;
        cycleTargetSec = (targetMins * 60) / (remainingSearches || 1);
        
-       let l = 10;
-       let m = 30;
-       if (useRandomDelay) {
-           l = parseInt(localStorage.getItem(`prof_${pKey}_randomDelayMin`)) || 10;
-           m = parseInt(localStorage.getItem(`prof_${pKey}_randomDelayMax`)) || 30;
-       }
+       let l, m;
        let Y = targetMins * 60;
        
-       // ─── STRICT MATHEMATICAL CLAMPING ───
-       // If the user's explicit delay bounds make the timeframe impossible, we MUST 
-       // adjust the total time target (Y) to the closest possible mathematical boundary.
-       const minPossibleTime = remainingSearches * l;
-       const maxPossibleTime = remainingSearches * m;
-       
-       if (Y < minPossibleTime) {
-          Y = minPossibleTime + 10; // add a small variance buffer
-          addLogEntry(`[${this.profileDir}] Warning: Target timeframe too short for ${remainingSearches} searches (Min delay: ${l}s). Increased total target to ${Y}s.`, 'warning');
-       } else if (Y > maxPossibleTime) {
-          Y = maxPossibleTime - 10; // subtract a small variance buffer
-          addLogEntry(`[${this.profileDir}] Warning: Target timeframe too long for ${remainingSearches} searches (Max delay: ${m}s). Decreased total target to ${Y}s.`, 'warning');
+       if (useRandomDelay) {
+           l = parseInt(localStorage.getItem(`prof_${pKey}_randomDelayMin`)) || 0;
+           m = parseInt(localStorage.getItem(`prof_${pKey}_randomDelayMax`)) || 500;
+           
+           // ─── STRICT MATHEMATICAL CLAMPING & VALIDATION ───
+           const minPossibleTime = remainingSearches * l;
+           const maxPossibleTime = remainingSearches * m;
+           
+           if (Y < minPossibleTime) {
+              Y = minPossibleTime + 10;
+              addLogEntry(`[${this.profileDir}] [ERROR] Global time too short! You set a minimum delay of ${l}s but only gave ${targetMins}m for ${remainingSearches} searches. Turn off "Random delay" or adjust limits. Clamping time to ${Y}s.`, 'error');
+           } else if (Y > maxPossibleTime) {
+              Y = maxPossibleTime - 10;
+              addLogEntry(`[${this.profileDir}] [ERROR] Global time too long! Your max delay is ${m}s, which can't stretch ${remainingSearches} searches over ${targetMins}m. Turn off "Random delay" so the AI can automatically assign perfect delays. Clamping time to ${Y}s.`, 'error');
+           }
+       } else {
+           // Auto-calculate perfect mathematical bounds based on global time
+           const perfectAvg = Y / remainingSearches;
+           l = Math.max(0, Math.floor(perfectAvg * 0.3)); // Min is 30% of avg
+           m = Math.min(500, Math.ceil(perfectAvg * 1.7)); // Max is 170% of avg
+           addLogEntry(`[${this.profileDir}] Auto-assigning optimal delay range: ${l}s - ${m}s to fit ${targetMins}m global timeframe.`, 'info');
        }
        
        this.aiDelays = await this.fetchGroqDelays(remainingSearches, Y, l, m);
@@ -702,7 +806,7 @@ CRITICAL RULES:
     }
     
     if (!isFlash && this.ui.delaySlider && cycleTargetSec > 0) {
-       this.ui.delaySlider.value = Math.min(60, Math.round(cycleTargetSec));
+       this.ui.delaySlider.value = Math.min(500, Math.round(cycleTargetSec));
        if (this.ui.delayValue) this.ui.delayValue.textContent = Math.round(cycleTargetSec);
     }
     

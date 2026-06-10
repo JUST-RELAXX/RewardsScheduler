@@ -368,15 +368,65 @@ function setupUI() {
 
 const extensionInstances = {};
 
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+const originalConsoleInfo = console.info;
+
+function stringifyArgs(args) {
+  return Array.from(args).map(arg => {
+    if (typeof arg === 'object') {
+      try {
+        return JSON.stringify(arg);
+      } catch (e) {
+        return String(arg);
+      }
+    }
+    return String(arg);
+  }).join(' ');
+}
+
+console.log = function(...args) {
+  originalConsoleLog.apply(console, args);
+  addLogEntry(stringifyArgs(args), 'log');
+};
+console.warn = function(...args) {
+  originalConsoleWarn.apply(console, args);
+  addLogEntry(stringifyArgs(args), 'warn');
+};
+console.error = function(...args) {
+  originalConsoleError.apply(console, args);
+  addLogEntry(stringifyArgs(args), 'error');
+};
+console.info = function(...args) {
+  originalConsoleInfo.apply(console, args);
+  addLogEntry(stringifyArgs(args), 'info');
+};
+
 function addLogEntry(text, type = 'info') {
   if (!dom.consoleBody) return;
   const entry = document.createElement('div');
+  
+  let cleanText = esc(text);
+  let prefix = '';
+  // Extract [SYS], [BOT], or [ProfileName] to style it separately
+  const match = cleanText.match(/^(\[.*?\])\s*(.*)/);
+  if (match) {
+    prefix = `<span class="log-prefix">${match[1]}</span> `;
+    cleanText = match[2];
+  }
+
   entry.className = `log-entry ${type}`;
-  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-msg">${esc(text)}</span>`;
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  const time = `${h}:${m}:${s}.${ms}`;
+  entry.innerHTML = `<span class="log-time">[${time}]</span> ${prefix}<span class="log-msg">${cleanText}</span>`;
   dom.consoleBody.appendChild(entry);
   dom.consoleBody.scrollTop = dom.consoleBody.scrollHeight;
-  while (dom.consoleBody.children.length > 200) dom.consoleBody.firstChild.remove();
+  while (dom.consoleBody.children.length > 500) dom.consoleBody.firstChild.remove();
 }
 
 // ─── Session ───

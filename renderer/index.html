@@ -104,14 +104,28 @@
           </div>
         </div>
 
-        <!-- Module 3: Holistic Settings -->
-        <div class="module holistic-module">
-          <div class="module-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>⚙️ Holistic Settings</span>
-            <button class="action-btn danger session-stop-btn" id="btnStopSession" style="padding:4px 8px; font-size:11px; min-height:0; width:auto;">
-              <span class="btn-icon" style="margin-right:4px;">⏹️</span><span class="btn-label">Stop</span>
-            </button>
+        <!-- Right Column Wrapper -->
+        <div style="display: flex; flex-direction: column; flex: 1; gap: 15px; min-width: 0;">
+          
+          <!-- Module 3a: Controls -->
+          <div class="module controls-module" style="flex: 0 0 auto;">
+            <div class="module-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <span>🎮 Controls</span>
+              <button class="action-btn danger session-stop-btn" id="btnStopSession" style="padding:4px 8px; font-size:11px; min-height:0; width:auto;">
+                <span class="btn-icon" style="margin-right:4px;">⏹️</span><span class="btn-label">Stop</span>
+              </button>
+            </div>
+            <div class="global-actions" style="display:flex; gap:10px;">
+              <button id="btnGlobalRefresh" class="action-btn ghost" style="flex:1; font-size:11px; min-height:0; padding:6px; border:1px solid rgba(255,255,255,0.1); justify-content:center;">🔄 Refresh All</button>
+              <button id="btnGlobalStart" class="action-btn accent" style="flex:1; font-size:11px; min-height:0; padding:6px; justify-content:center; background: #00b0ff; color: #fff;">▶ START GLOBAL</button>
+            </div>
           </div>
+
+          <!-- Module 3b: Holistic Settings -->
+          <div class="module holistic-module" style="flex: 1;">
+            <div class="module-header">
+              <span>⚙️ Holistic Settings</span>
+            </div>
           
           <div class="control-group" style="margin-bottom: 10px;">
             <label style="font-size: 11px; color: #b0bec5; display: block; margin-bottom: 4px;">Global Completion Time (Mins):</label>
@@ -153,11 +167,11 @@
                 <div id="profRandomDelayControls" style="display:none;">
                   <label class="setting-label" style="font-size: 11px;">Delay range (seconds):</label>
                   <div class="input-group" style="display:flex; align-items:center; gap:8px;">
-                    <input type="range" id="profRandomDelayMin" min="1" max="60" value="1" class="slider" style="flex:1;">
+                    <input type="range" id="profRandomDelayMin" min="0" max="500" value="1" class="slider" style="flex:1;">
                     <span class="value-display" id="profRandomDelayMinValue">1s</span>
                   </div>
                   <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-                    <input type="range" id="profRandomDelayMax" min="1" max="60" value="10" class="slider" style="flex:1;">
+                    <input type="range" id="profRandomDelayMax" min="0" max="500" value="10" class="slider" style="flex:1;">
                     <span class="value-display" id="profRandomDelayMaxValue">10s</span>
                   </div>
 
@@ -227,11 +241,9 @@
             </div>
           </div>
 
-          <div class="global-actions" style="display:flex; gap:10px; margin-top: auto;">
-            <button id="btnGlobalRefresh" class="action-btn ghost" style="flex:1; font-size:11px; min-height:0; padding:6px; border:1px solid rgba(255,255,255,0.1); justify-content:center;">🔄 Refresh All</button>
-            <button id="btnGlobalStart" class="action-btn accent" style="flex:1; font-size:11px; min-height:0; padding:6px; justify-content:center; background: #00b0ff; color: #fff;">▶ START GLOBAL</button>
-          </div>
         </div>
+
+        </div> <!-- End Right Column Wrapper -->
 
       </div>
 

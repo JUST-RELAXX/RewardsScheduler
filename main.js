@@ -3,6 +3,10 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, Notificati
 const path = require('path');
 const fs = require('fs');
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.bhoomi.msrewardsscheduler');
+}
+
 const Scheduler = require('./modules/scheduler');
 const ProfileManager = require('./modules/profile-manager');
 const Tracker = require('./modules/tracker');
@@ -375,7 +379,7 @@ app.whenReady().then(async () => {
   // Configure app to run on Windows startup in the background
   app.setLoginItemSettings({
     openAtLogin: true,
-    args: ['--hidden'] // Flag so we know it was an auto-startup
+    args: app.isPackaged ? ['--hidden'] : [`"${app.getAppPath()}"`, '--hidden'] // Add quoted app path in dev mode
   });
 
   // Show dashboard on first launch UNLESS launched silently via startup
@@ -383,6 +387,18 @@ app.whenReady().then(async () => {
     createMainWindow();
   } else {
     console.log('[Main] Launched silently via Windows Startup');
+    
+    // Check if there are still pending searches
+    const profiles = profileManager.profiles.map(p => p.dir);
+    const allDone = profiles.length > 0 && tracker.isAllDoneToday(profiles);
+    
+    if (!allDone) {
+      showNotificationWindow({
+        urgency: 'casual',
+        title: 'Hey bruh! 👋',
+        body: 'Wanna do all the searches now??? Your rewards are waiting!'
+      });
+    }
   }
 
   console.log('[Main] MS Rewards Scheduler started!');
