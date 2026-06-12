@@ -39,6 +39,18 @@
         <div class="status-timer" id="statusTimer"></div>
       </div>
 
+      <!-- Global Points Canvas -->
+      <div style="display:flex; justify-content:center; margin-bottom: 20px;">
+         <div id="globalPointsCanvas" class="lavish-container" style="padding: 16px 40px; text-align: center; border-radius: 16px; min-width: 350px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 0 20px rgba(0,0,0,0.2); cursor: context-menu;">
+            <div style="font-size: 12px; color: #b0bec5; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Global Points Earned Today</div>
+            <div style="display:flex; align-items: baseline; justify-content: center;">
+              <span id="homeHolisticPoints" style="font-size: 56px; font-weight: 700; color: #ffeb3b; text-shadow: 0 0 20px rgba(255, 235, 59, 0.35); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">0</span>
+              <span style="font-size: 16px; font-weight: 600; color: #b0bec5; margin-left: 8px;">PTS</span>
+            </div>
+            <div style="font-size: 11px; color: #78909c; margin-top: 8px;">Across all your configured profiles</div>
+         </div>
+      </div>
+
       <!-- Quick Actions Bar -->
       <div class="action-bar">
         <button class="action-btn primary" id="btnRunAll">
@@ -87,7 +99,19 @@
             <span id="holisticPointsCounter">0</span>
             <span class="pts-label">PTS</span>
           </div>
-          <div class="module-subheader">NUTSHELL (Live)</div>
+          <div class="module-subheader" style="position: relative;">
+            NUTSHELL (Live) <span id="nutshellInfoBtn" style="cursor:pointer; color:#00b0ff; margin-left:5px; font-weight:bold;">(i)</span>
+            
+            <!-- Nutshell Info Modal Canvas -->
+            <div id="nutshellInfoModal" class="nutshell-info-modal">
+              <span class="close-btn" id="nutshellInfoClose">✖</span>
+              <div style="font-weight:bold; margin-bottom: 8px; color:#00b0ff;">Color Legend</div>
+              <div class="info-row"><span class="info-dot" style="color:#69f0ae;">●</span> <strong>GREEN:</strong> ACTIVELY SEARCHING!</div>
+              <div class="info-row"><span class="info-dot" style="color:#00b0ff;">●</span> <strong>BLUE:</strong> IDLE-WAITING FOR DELAY TO PASS...</div>
+              <div class="info-row"><span class="info-dot" style="color:#ff5252;">●</span> <strong>RED:</strong> ERROR/STOPPED!!</div>
+              <div class="info-row"><span class="info-dot" style="color:#b0bec5;">●</span> <strong>GREY:</strong> COMPLETED!</div>
+            </div>
+          </div>
           <div class="nutshell-list" id="nutshellList">
             <!-- Populated dynamically: <div>Profile 1: 17/30</div> -->
           </div>
@@ -293,6 +317,11 @@
     <div id="profileContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
       <div class="ctx-item" id="ctxMarkDone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✅ Mark as done</div>
       <div class="ctx-item" id="ctxMarkUndone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">❌ Mark as pending</div>
+    </div>
+
+    <!-- Global Points Context Menu -->
+    <div id="globalPointsContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
+      <div class="ctx-item" id="ctxResetGlobalPoints" style="padding: 8px 12px; color: #ffeb3b; font-size: 12px; cursor: pointer; border-radius: 4px;">🔄 Reset global points & start fresh</div>
     </div>
 
     <!-- Engine Script -->

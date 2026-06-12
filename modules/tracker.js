@@ -75,6 +75,20 @@ class Tracker {
     this._save();
   }
 
+  // Update partial progress dynamically
+  updateSearchProgress(profileDir, searchCount) {
+    const key = this._todayKey();
+    if (!this.data[key]) this.data[key] = {};
+    if (!this.data[key][profileDir]) {
+      this.data[key][profileDir] = this._defaultStatus();
+    }
+    // Only update if it's higher to avoid resetting
+    if (searchCount > this.data[key][profileDir].searchCount) {
+       this.data[key][profileDir].searchCount = searchCount;
+       this._save();
+    }
+  }
+
   // Mark a profile's searches as complete
   markSearchesDone(profileDir, searchCount = 60) {
     const key = this._todayKey();
@@ -102,6 +116,30 @@ class Tracker {
     this.data[key][profileDir].searchCount = 0;
     this.data[key][profileDir].inProgress = false;
     this.data[key][profileDir].completedAt = null;
+    this._save();
+  }
+
+  // Reset just the search points to 0 (leaving other status intact)
+  resetSearchCount(profileDir) {
+    const key = this._todayKey();
+    if (!this.data[key]) this.data[key] = {};
+    if (!this.data[key][profileDir]) {
+      this.data[key][profileDir] = this._defaultStatus();
+    }
+    this.data[key][profileDir].searchCount = 0;
+    this._save();
+  }
+
+  // Reset ALL global points for today to 0
+  resetAllGlobalPoints() {
+    const key = this._todayKey();
+    if (!this.data[key]) return;
+    for (const profileDir of Object.keys(this.data[key])) {
+      this.data[key][profileDir].searchCount = 0;
+      this.data[key][profileDir].searchesDone = false;
+      this.data[key][profileDir].inProgress = false;
+      this.data[key][profileDir].completedAt = null;
+    }
     this._save();
   }
 

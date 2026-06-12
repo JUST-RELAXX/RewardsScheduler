@@ -283,6 +283,11 @@ function setupIPC() {
     return { success: true };
   });
 
+  // Renderer dynamically reports search progress
+  ipcMain.handle('report-search-progress', (_, profileDir, currentCount) => {
+    tracker.updateSearchProgress(profileDir, currentCount);
+  });
+
   // Renderer reports a profile's searches are complete
   ipcMain.handle('report-search-complete', (_, profileDir, totalExecuted) => {
     console.log(`[Main] Search complete for ${profileDir}: ${totalExecuted} searches`);
@@ -314,6 +319,16 @@ function setupIPC() {
 
   ipcMain.handle('mark-profile-done-manual', (_, profileDir, maxSearches) => {
     tracker.markSearchesDone(profileDir, maxSearches);
+    return { success: true };
+  });
+
+  ipcMain.handle('reset-profile-points', (_, profileDir) => {
+    tracker.resetSearchCount(profileDir);
+    return { success: true };
+  });
+
+  ipcMain.handle('reset-global-points', () => {
+    tracker.resetAllGlobalPoints();
     return { success: true };
   });
 

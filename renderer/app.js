@@ -40,7 +40,8 @@ function initDOM() {
     'btnStopSession', 'consoleBody', 'btnToggleConsole', 'webviewGrid',
     'holisticPointsCounter', 'nutshellList', 'globalTimeframeInput', 
     'btnGlobalRefresh', 'btnGlobalStart', 'setGroqApiKey',
-    'btnGlobalFlash', 'btnProfileFlash', 'profFlashCountdown'
+    'btnGlobalFlash', 'btnProfileFlash', 'profFlashCountdown',
+    'homeHolisticPoints'
   ].forEach(id => { dom[id] = $(id); });
   
   if (dom.setGroqApiKey) {
@@ -98,7 +99,7 @@ async function loadProfiles(retries = 3) {
       p.onlineMinutes = s.onlineMinutes || 0;
       p.inProgress = s.inProgress || false;
       p.isConnected = s.isConnected || false;
-      p.executed = 0;
+      p.executed = s.searchCount || 0;
       
       const customMaxStr = localStorage.getItem('customMaxPoints_' + p.dir);
       const customMax = customMaxStr ? parseInt(customMaxStr) : null;
@@ -125,6 +126,8 @@ async function loadProfiles(retries = 3) {
 function renderGrid() {
   if (!dom.accountsGrid) return;
   dom.accountsGrid.innerHTML = '';
+  
+  let homeTotalPoints = 0;
 
   if (profiles.length === 0) {
     dom.accountsGrid.innerHTML = `
@@ -154,6 +157,12 @@ function renderGrid() {
 
     const pct = p.searchesDone ? 100 : (p.total > 0 ? Math.min(100, Math.round((p.executed / p.total) * 100)) : 0);
     const progressClass = p.searchesDone ? 'done' : (p.searchStatus === 'searching' ? 'active' : '');
+
+    // Holistic Point Calculation for Dashboard
+    let currentPts = p.searchesDone ? (p.searchCount * 3) : (p.executed * 3);
+    const customMax = localStorage.getItem('customMaxPoints_' + p.dir);
+    const maxPts = customMax ? parseInt(customMax) : (p.total * 3);
+    homeTotalPoints += Math.min(currentPts, maxPts);
 
     card.innerHTML = `
       <div class="card-header">
@@ -189,6 +198,10 @@ function renderGrid() {
 
     dom.accountsGrid.appendChild(card);
   });
+  
+  if (dom.homeHolisticPoints) {
+    dom.homeHolisticPoints.textContent = homeTotalPoints;
+  }
 }
 
 function updateDoneCounter() {
@@ -249,6 +262,22 @@ function setupUI() {
     renderGrid();
   });
 
+  dom.nutshellInfoBtn = document.getElementById('nutshellInfoBtn');
+  dom.nutshellInfoModal = document.getElementById('nutshellInfoModal');
+  dom.nutshellInfoClose = document.getElementById('nutshellInfoClose');
+  
+  if (dom.nutshellInfoBtn) {
+    dom.nutshellInfoBtn.addEventListener('click', () => {
+       dom.nutshellInfoModal.classList.toggle('show');
+    });
+  }
+  
+  if (dom.nutshellInfoClose) {
+    dom.nutshellInfoClose.addEventListener('click', () => {
+       dom.nutshellInfoModal.classList.remove('show');
+    });
+  }
+
   // Close prompt
   on(dom.btnCloseMistake, 'click', () => {
     if (pendingCloseProfile) {
@@ -285,9 +314,23 @@ function setupUI() {
           ctxMenu.style.display = 'none';
         }
       });
+      
+      const globalCtxMenu = document.getElementById('globalPointsContextMenu');
+      const globalCanvas = document.getElementById('globalPointsCanvas');
+      if (globalCtxMenu && globalCanvas) {
+          globalCanvas.addEventListener('contextmenu', (e) => {
+            if (!sessionRunning) {
+              e.preventDefault();
+              globalCtxMenu.style.display = 'block';
+              globalCtxMenu.style.left = e.pageX + 'px';
+              globalCtxMenu.style.top = e.pageY + 'px';
+            }
+          });
+      }
 
       document.addEventListener('click', () => {
         ctxMenu.style.display = 'none';
+        if (globalCtxMenu) globalCtxMenu.style.display = 'none';
       });
 
       document.getElementById('ctxMarkDone')?.addEventListener('click', async () => {
@@ -301,6 +344,13 @@ function setupUI() {
       document.getElementById('ctxMarkUndone')?.addEventListener('click', async () => {
         if (contextMenuTargetDir) {
           await ipcRenderer.invoke('mark-profile-undone-manual', contextMenuTargetDir);
+          loadProfiles();
+        }
+      });
+
+      document.getElementById('ctxResetGlobalPoints')?.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to completely reset the Global Points tracker and start fresh for today?')) {
+          await ipcRenderer.invoke('reset-global-points');
           loadProfiles();
         }
       });
@@ -644,6 +694,10 @@ async function startSession(profileDirs) {
 
     // Instantiate and store
     extensionInstances[dir] = new ExtensionInstance(dir, webviewEl, uiElements);
+    if (p && p.executed > 0) {
+       extensionInstances[dir].executedCount = p.executed;
+       extensionInstances[dir].ui.countText.textContent = p.executed;
+    }
   });
 
   // Calculate dynamic Flexbox layout to perfectly fill screen without gaps or squishing
@@ -743,7 +797,11 @@ async function startSession(profileDirs) {
     if (!sessionRunning) return;
     
     let totalPoints = 0;
-    let nutshellHTML = '';
+    
+    // Ensure we don't have stray elements if profiles change
+    if (dom.nutshellList && dom.nutshellList.children.length > profileDirs.length) {
+        dom.nutshellList.innerHTML = ''; 
+    }
     
     profileDirs.forEach((dir, i) => {
        const inst = extensionInstances[dir];
@@ -756,22 +814,58 @@ async function startSession(profileDirs) {
        const customMax = localStorage.getItem('customMaxPoints_' + dir);
        const maxPts = customMax ? parseInt(customMax) : (limit * 3);
        
-       totalPoints += currentPts;
+       totalPoints += Math.min(currentPts, maxPts);
        
        let statusColor = '#b0bec5';
-       if (inst.isRunning) statusColor = '#69f0ae'; // active
-       else if (inst.executedCount >= limit && limit > 0) statusColor = '#00b0ff'; // done
-       else if (inst.executedCount > 0 && !inst.isRunning) statusColor = '#ff5252'; // error/halted
+       let isGlowing = false;
        
-       nutshellHTML += `<div class="nutshell-item">
-          <span style="color:${statusColor}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 60%;" title="${pName}">● ${pName}</span>
-          <span class="nutshell-points" style="font-weight:bold; transition: opacity 0.2s;">${currentPts}/${maxPts}</span>
-          <div class="nutshell-edit-btn" onclick="window.showPointsPrompt('${dir.replace(/\\/g, '\\\\')}', ${maxPts}, '${pName.replace(/'/g, "\\'")}')">✏️ Edit</div>
-       </div>`;
+       if (inst.isRunning) {
+           if (inst.isWaiting) {
+               statusColor = '#00b0ff'; // Blue (Idle - Waiting for delay)
+           } else {
+               statusColor = '#69f0ae'; // Green (Active/Typing)
+               isGlowing = true;
+           }
+       }
+       else if (inst.executedCount >= limit && limit > 0) statusColor = '#b0bec5'; // Grey (Completed)
+       else if (inst.executedCount > 0 && !inst.isRunning) statusColor = '#ff5252'; // Red (Error/Halted)
+       
+       if (dom.nutshellList) {
+           let itemDiv = dom.nutshellList.children[i];
+           if (!itemDiv) {
+               itemDiv = document.createElement('div');
+               itemDiv.className = 'nutshell-item';
+               itemDiv.innerHTML = `
+                  <span class="nutshell-name" style="white-space:nowrap; overflow:visible; font-weight:500; padding: 2px 0;"></span>
+                  <span class="nutshell-points" style="font-weight:bold; transition: opacity 0.2s;"></span>
+                  <div class="nutshell-edit-btn">✏️ Edit</div>
+               `;
+               dom.nutshellList.appendChild(itemDiv);
+           }
+           
+           const nameSpan = itemDiv.querySelector('.nutshell-name');
+           const ptsSpan = itemDiv.querySelector('.nutshell-points');
+           const editBtn = itemDiv.querySelector('.nutshell-edit-btn');
+           
+           const newClass = isGlowing ? 'nutshell-name glowing-green' : 'nutshell-name';
+           if (nameSpan.className !== newClass) nameSpan.className = newClass;
+           if (nameSpan.style.color !== statusColor) nameSpan.style.color = statusColor;
+           
+           const nameText = `● ${pName}`;
+           if (nameSpan.textContent !== nameText) {
+               nameSpan.textContent = nameText;
+               nameSpan.title = pName;
+           }
+           
+           const ptsText = `${currentPts}/${maxPts}`;
+           if (ptsSpan.textContent !== ptsText) ptsSpan.textContent = ptsText;
+           
+           // Using setAttribute to avoid function recreation loop issues but onclick works too
+           editBtn.onclick = () => window.showPointsPrompt(dir.replace(/\\/g, '\\\\'), maxPts, pName.replace(/'/g, "\\'"));
+       }
     });
     
     if (dom.holisticPointsCounter) dom.holisticPointsCounter.textContent = totalPoints;
-    if (dom.nutshellList) dom.nutshellList.innerHTML = nutshellHTML;
   }, 1000);
 }
 
@@ -829,7 +923,7 @@ function endSessionUI() {
   if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
   
   profiles.forEach(p => { if (p.searchStatus !== 'done') p.searchStatus = 'pending'; });
-  renderGrid();
+  loadProfiles(0);
 }
 
 // ─── IPC Events from Main Process ───

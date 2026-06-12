@@ -39,6 +39,7 @@ class ExtensionInstance {
     this.ui = uiElements;
     
     this.isRunning = false;
+    this.isWaiting = false;
     this.queries = [];
     this.currentIndex = 0;
     this.executedCount = 0;
@@ -731,7 +732,6 @@ CRITICAL RULES:
     
     this.isRunning = true;
     this.currentIndex = startFromIndex;
-    this.executedCount = 0;
     this.updateUIStatus('Searching');
     
     // ─── MATHEMATICALLY PRECISE LIMIT CALCULATION ───
@@ -836,6 +836,7 @@ CRITICAL RULES:
       
       this.currentIndex++;
       this.executedCount++;
+      require('electron').ipcRenderer.invoke('report-search-progress', this.profileDir, this.executedCount);
       searchesSinceLastTrigger++;
       
       if (!this.isRunning) break;
@@ -890,7 +891,9 @@ CRITICAL RULES:
         this.updateChart(totalPacingSec.toFixed(1));
       }
       
+      this.isWaiting = true;
       await this.waitChunked(currentDelaySec * 1000);
+      this.isWaiting = false;
     }
     
     this.isRunning = false;

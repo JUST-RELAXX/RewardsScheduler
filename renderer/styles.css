@@ -251,6 +251,67 @@ body {
 .btn-icon { font-size: 16px; }
 .btn-label { white-space: nowrap; }
 
+/* ======== Nutshell Upgrades ======== */
+.glowing-green {
+  text-shadow: 0 0 8px rgba(105, 240, 174, 0.7);
+  animation: pulse-glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  from {
+    opacity: 0.7;
+    color: #4CAF50;
+  }
+  to {
+    opacity: 1;
+    color: #69f0ae;
+  }
+}
+
+.nutshell-info-modal {
+  position: absolute;
+  top: 30px;
+  left: 100px;
+  background: #1e2030;
+  border: 1px solid #00b0ff;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  color: #fff;
+  z-index: 999;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  display: none;
+  width: 250px;
+}
+
+.nutshell-info-modal.show {
+  display: block;
+}
+
+.nutshell-info-modal .close-btn {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  cursor: pointer;
+  color: #b0bec5;
+  font-weight: bold;
+}
+
+.nutshell-info-modal .close-btn:hover {
+  color: #ff5252;
+}
+
+.info-row {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.info-dot {
+  margin-right: 6px;
+  font-size: 10px;
+}
+
 /* ─── Section Header ─── */
 .section-header {
   display: flex;
