@@ -52,7 +52,9 @@ class ProfileManager extends EventEmitter {
         .filter(d => d.name === 'Default' || /^Profile \d+$/.test(d.name));
 
       for (const dir of dirs) {
-        const prefsPath = path.join(EDGE_USER_DATA, dir.name, 'Preferences');
+        const fullPath = path.join(EDGE_USER_DATA, dir.name);
+        const prefsPath = path.join(fullPath, 'Preferences');
+        const flagPath = path.join(fullPath, 'app_created.flag');
         let displayName = dir.name;
         try {
           if (fs.existsSync(prefsPath)) {
@@ -64,7 +66,8 @@ class ProfileManager extends EventEmitter {
         this.profiles.push({
           dir: dir.name,
           displayName: displayName,
-          fullPath: path.join(EDGE_USER_DATA, dir.name)
+          fullPath: fullPath,
+          isAppCreated: fs.existsSync(flagPath)
         });
       }
 
@@ -84,6 +87,132 @@ class ProfileManager extends EventEmitter {
       console.error('[ProfileManager] Error discovering profiles:', e.message);
       return [];
     }
+  }
+
+  // Create a new mock profile
+  createNewProfile(profileName) {
+    if (!fs.existsSync(EDGE_USER_DATA)) {
+      throw new Error('Edge User Data directory not found');
+    }
+
+    const dirs = fs.readdirSync(EDGE_USER_DATA, { withFileTypes: true })
+      .filter(d => d.isDirectory() && /^Profile \d+$/.test(d.name));
+    
+    let maxNum = 0;
+    for (const dir of dirs) {
+      const num = parseInt(dir.name.replace('Profile ', ''));
+      if (num > maxNum) maxNum = num;
+    }
+    
+    const newDirName = `Profile ${maxNum + 1}`;
+    const newDirPath = path.join(EDGE_USER_DATA, newDirName);
+    
+    // Create directory
+    fs.mkdirSync(newDirPath, { recursive: true });
+    
+    // Create preferences file so Edge adopts it correctly
+    const prefsPath = path.join(newDirPath, 'Preferences');
+    const prefsObj = {
+      profile: {
+        name: profileName
+      }
+    };
+    fs.writeFileSync(prefsPath, JSON.stringify(prefsObj, null, 2), 'utf8');
+
+    // Create flag file to identify this profile as app-created
+    fs.writeFileSync(path.join(newDirPath, 'app_created.flag'), '', 'utf8');
+
+    // Register it in Edge's global Local State so it appears in the Profile Switcher natively
+    try {
+      const localStatePath = path.join(EDGE_USER_DATA, 'Local State');
+      if (fs.existsSync(localStatePath)) {
+        const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf8'));
+        if (!localState.profile) localState.profile = {};
+        if (!localState.profile.info_cache) localState.profile.info_cache = {};
+        
+        // Random avatar icon (Edge has avatars 1 to ~40)
+        const randomAvatarId = Math.floor(Math.random() * 40) + 1;
+        
+        localState.profile.info_cache[newDirName] = {
+          "active_time": Date.now() / 1000,
+          "avatar_icon": `chrome://theme/IDR_PROFILE_AVATAR_${randomAvatarId}`,
+          "is_ephemeral": false,
+          "is_using_default_avatar": false,
+          "is_using_default_name": false,
+          "name": profileName,
+          "shortcut_name": profileName
+        };
+        
+        fs.writeFileSync(localStatePath, JSON.stringify(localState, null, 2), 'utf8');
+        console.log(`[ProfileManager] Registered ${newDirName} in Edge Local State`);
+      }
+    } catch (err) {
+      console.error(`[ProfileManager] Failed to update Edge Local State: ${err.message}`);
+    }
+    
+    console.log(`[ProfileManager] Created new profile directory: ${newDirName} for "${profileName}"`);
+    return newDirName;
+  }
+
+  // Rename an app-created profile
+  renameProfile(dirName, newName) {
+    const fullPath = path.join(EDGE_USER_DATA, dirName);
+    if (!fs.existsSync(fullPath)) throw new Error('Profile directory not found');
+    if (!fs.existsSync(path.join(fullPath, 'app_created.flag'))) throw new Error('Not an app-created profile');
+
+    // 1. Update Preferences
+    const prefsPath = path.join(fullPath, 'Preferences');
+    if (fs.existsSync(prefsPath)) {
+      const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
+      if (!prefs.profile) prefs.profile = {};
+      prefs.profile.name = newName;
+      fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2), 'utf8');
+    }
+
+    // 2. Update Local State
+    try {
+      const localStatePath = path.join(EDGE_USER_DATA, 'Local State');
+      if (fs.existsSync(localStatePath)) {
+        const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf8'));
+        if (localState.profile?.info_cache?.[dirName]) {
+          localState.profile.info_cache[dirName].name = newName;
+          localState.profile.info_cache[dirName].shortcut_name = newName;
+          fs.writeFileSync(localStatePath, JSON.stringify(localState, null, 2), 'utf8');
+        }
+      }
+    } catch (err) {
+      console.error(`[ProfileManager] Failed to update Edge Local State on rename: ${err.message}`);
+    }
+
+    console.log(`[ProfileManager] Renamed ${dirName} to "${newName}"`);
+    return true;
+  }
+
+  // Delete an app-created profile
+  deleteProfile(dirName) {
+    const fullPath = path.join(EDGE_USER_DATA, dirName);
+    if (!fs.existsSync(fullPath)) return false; // Already gone
+    if (!fs.existsSync(path.join(fullPath, 'app_created.flag'))) throw new Error('Cannot delete native Edge profiles');
+
+    // Recursively delete directory
+    fs.rmSync(fullPath, { recursive: true, force: true });
+
+    // Remove from Local State
+    try {
+      const localStatePath = path.join(EDGE_USER_DATA, 'Local State');
+      if (fs.existsSync(localStatePath)) {
+        const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf8'));
+        if (localState.profile?.info_cache?.[dirName]) {
+          delete localState.profile.info_cache[dirName];
+          fs.writeFileSync(localStatePath, JSON.stringify(localState, null, 2), 'utf8');
+        }
+      }
+    } catch (err) {
+      console.error(`[ProfileManager] Failed to update Edge Local State on delete: ${err.message}`);
+    }
+
+    console.log(`[ProfileManager] Deleted profile ${dirName}`);
+    return true;
   }
 
   // Calculate optimal grid layout for N windows

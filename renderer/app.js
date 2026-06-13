@@ -199,6 +199,73 @@ function renderGrid() {
     dom.accountsGrid.appendChild(card);
   });
   
+  // Add "Add more profiles" Card
+  const addCard = document.createElement('div');
+  addCard.className = 'add-profile-card';
+  addCard.innerHTML = `
+    <div class="add-bg-text">Add more profiles</div>
+    <div class="add-icon">+</div>
+    <div class="add-profile-form" id="addProfileForm">
+      <input type="text" id="newProfileName" placeholder="Profile Name (e.g. Work)">
+      <input type="number" id="newProfileMaxPts" placeholder="Max Points (e.g. 60)" value="60">
+      <div class="form-actions">
+        <button class="action-btn ghost" id="btnCancelAdd">CANCEL</button>
+        <button class="action-btn primary" id="btnDoneAdd">DONE</button>
+      </div>
+    </div>
+  `;
+  dom.accountsGrid.appendChild(addCard);
+
+  // Setup Add Profile Interactions
+  const addIcon = addCard.querySelector('.add-icon');
+  const addBgText = addCard.querySelector('.add-bg-text');
+  const addForm = addCard.querySelector('.add-profile-form');
+  const btnCancelAdd = addCard.querySelector('#btnCancelAdd');
+  const btnDoneAdd = addCard.querySelector('#btnDoneAdd');
+  const inputName = addCard.querySelector('#newProfileName');
+  const inputPts = addCard.querySelector('#newProfileMaxPts');
+
+  addCard.addEventListener('click', (e) => {
+    if (e.target === addCard || e.target === addIcon || e.target === addBgText) {
+      addIcon.style.display = 'none';
+      addBgText.style.display = 'none';
+      addForm.style.display = 'flex';
+      addCard.style.cursor = 'default';
+      inputName.focus();
+    }
+  });
+
+  btnCancelAdd.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addForm.style.display = 'none';
+    addIcon.style.display = 'block';
+    addBgText.style.display = 'block';
+    addCard.style.cursor = 'pointer';
+    inputName.value = '';
+    inputPts.value = '60';
+  });
+
+  btnDoneAdd.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const name = inputName.value.trim();
+    const maxPts = parseInt(inputPts.value) || 60;
+    if (!name) return alert('Please enter a profile name');
+    
+    // Call IPC to create new profile directory
+    btnDoneAdd.textContent = '...';
+    try {
+      const newDir = await ipcRenderer.invoke('create-new-profile', { name });
+      if (newDir) {
+        localStorage.setItem('customMaxPoints_' + newDir, maxPts.toString());
+        loadProfiles();
+      } else {
+        alert('Failed to create profile directory.');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  });
+
   if (dom.homeHolisticPoints) {
     dom.homeHolisticPoints.textContent = homeTotalPoints;
   }
@@ -292,17 +359,13 @@ function setupUI() {
   let contextMenuTargetDir = null;
   const ctxMenu = document.getElementById('profileContextMenu');
   if (ctxMenu) {
-      document.addEventListener('contextmenu', (e) => {
+      document.getElementById('accountsGrid').addEventListener('contextmenu', (e) => {
         const card = e.target.closest('.account-card');
         if (card && !sessionRunning) {
           e.preventDefault();
-          contextMenuTargetDir = card.dataset.dir;
-          
-          ctxMenu.style.display = 'block';
-          ctxMenu.style.left = e.pageX + 'px';
-          ctxMenu.style.top = e.pageY + 'px';
-          
+          contextMenuTargetDir = card.querySelector('.card-dir').textContent;
           const p = profiles.find(pr => pr.dir === contextMenuTargetDir);
+          
           if (p && p.searchesDone) {
              document.getElementById('ctxMarkDone').style.display = 'none';
              document.getElementById('ctxMarkUndone').style.display = 'block';
@@ -310,6 +373,18 @@ function setupUI() {
              document.getElementById('ctxMarkDone').style.display = 'block';
              document.getElementById('ctxMarkUndone').style.display = 'none';
           }
+          
+          if (p && p.isAppCreated) {
+             document.getElementById('ctxRenameProfile').style.display = 'block';
+             document.getElementById('ctxDeleteProfile').style.display = 'block';
+          } else {
+             document.getElementById('ctxRenameProfile').style.display = 'none';
+             document.getElementById('ctxDeleteProfile').style.display = 'none';
+          }
+
+          ctxMenu.style.display = 'block';
+          ctxMenu.style.left = e.pageX + 'px';
+          ctxMenu.style.top = e.pageY + 'px';
         } else {
           ctxMenu.style.display = 'none';
         }
@@ -345,6 +420,56 @@ function setupUI() {
         if (contextMenuTargetDir) {
           await ipcRenderer.invoke('mark-profile-undone-manual', contextMenuTargetDir);
           loadProfiles();
+        }
+      });
+
+      document.getElementById('ctxRenameProfile')?.addEventListener('click', async () => {
+        if (contextMenuTargetDir) {
+          const p = profiles.find(pr => pr.dir === contextMenuTargetDir);
+          const modal = document.getElementById('promptModal');
+          const input = document.getElementById('promptModalInput');
+          const btnCancel = document.getElementById('btnPromptCancel');
+          const btnConfirm = document.getElementById('btnPromptConfirm');
+          
+          input.value = p ? p.displayName : '';
+          modal.style.display = 'flex';
+          input.focus();
+          
+          const cleanup = () => {
+             modal.style.display = 'none';
+             btnCancel.removeEventListener('click', onCancel);
+             btnConfirm.removeEventListener('click', onConfirm);
+          };
+          
+          const onCancel = () => cleanup();
+          const onConfirm = async () => {
+             const newName = input.value.trim();
+             cleanup();
+             if (newName) {
+               try {
+                 await ipcRenderer.invoke('rename-profile', { dir: contextMenuTargetDir, newName });
+                 loadProfiles();
+               } catch (e) {
+                 alert('Failed to rename profile.');
+               }
+             }
+          };
+          
+          btnCancel.addEventListener('click', onCancel);
+          btnConfirm.addEventListener('click', onConfirm);
+        }
+      });
+
+      document.getElementById('ctxDeleteProfile')?.addEventListener('click', async () => {
+        if (contextMenuTargetDir) {
+          if (confirm('Are you absolutely sure you want to permanently delete this profile and all its data? This cannot be undone.')) {
+            try {
+              await ipcRenderer.invoke('delete-profile', { dir: contextMenuTargetDir });
+              loadProfiles();
+            } catch (e) {
+              alert('Failed to delete profile.');
+            }
+          }
         }
       });
 

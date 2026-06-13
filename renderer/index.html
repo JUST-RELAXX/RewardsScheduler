@@ -312,11 +312,30 @@
         </div>
       </div>
     </div>
+    <!-- Custom Prompt Modal -->
+    <div class="settings-overlay" id="promptModal" style="display:none; z-index: 20000;">
+      <div class="settings-card" style="max-width: 350px;">
+        <div class="settings-header">
+          <h3 id="promptModalTitle">Rename Profile</h3>
+        </div>
+        <div class="settings-body">
+          <div class="setting-group">
+            <input type="text" id="promptModalInput" class="setting-input" style="width: 100%;">
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 16px;">
+            <button class="action-btn ghost" id="btnPromptCancel" style="flex:1;">Cancel</button>
+            <button class="action-btn primary" id="btnPromptConfirm" style="flex:1;">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Custom Context Menu -->
     <div id="profileContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
       <div class="ctx-item" id="ctxMarkDone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✅ Mark as done</div>
       <div class="ctx-item" id="ctxMarkUndone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">❌ Mark as pending</div>
+      <div class="ctx-item" id="ctxRenameProfile" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✏️ Rename Profile</div>
+      <div class="ctx-item" id="ctxDeleteProfile" style="padding: 8px 12px; color: #ff5252; font-size: 12px; cursor: pointer; border-radius: 4px;">🗑️ Delete Profile</div>
     </div>
 
     <!-- Global Points Context Menu -->

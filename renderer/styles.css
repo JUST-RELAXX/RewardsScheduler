@@ -369,6 +369,69 @@ body {
   margin-bottom: 24px;
 }
 
+/* Add Profile Card */
+.add-profile-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.4);
+  border: 2px dashed rgba(255,255,255,0.2);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  min-height: 140px;
+}
+.add-profile-card:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255,255,255,0.4);
+  transform: translateY(-2px);
+}
+.add-profile-card .add-bg-text {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.05);
+  font-size: 24px;
+  font-weight: 800;
+  text-transform: uppercase;
+  z-index: 0;
+  text-align: center;
+  width: 100%;
+}
+.add-profile-card .add-icon {
+  font-size: 48px;
+  color: var(--accent);
+  z-index: 1;
+  font-weight: 300;
+}
+.add-profile-form {
+  display: none;
+  flex-direction: column;
+  width: 100%;
+  gap: 8px;
+  z-index: 2;
+  background: var(--bg-card);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+}
+.add-profile-form input {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.add-profile-form .form-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.add-profile-form button {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+}
+
 .account-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

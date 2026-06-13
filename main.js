@@ -229,9 +229,44 @@ function setupSchedulerEvents() {
 // ─── IPC Handlers ───
 function setupIPC() {
   ipcMain.handle('get-profiles', () => {
+    profileManager.discoverProfiles(); // Refresh from disk
     const data = profileManager.getProfilesData();
     console.log(`[IPC] get-profiles returning ${data.length} profiles`);
     return data;
+  });
+
+  ipcMain.handle('create-new-profile', (_, { name }) => {
+    try {
+      const newDirName = profileManager.createNewProfile(name);
+      // Rediscover so get-profiles returns it correctly
+      profileManager.discoverProfiles();
+      return newDirName;
+    } catch (e) {
+      console.error('[IPC] Failed to create new profile:', e);
+      throw e;
+    }
+  });
+
+  ipcMain.handle('rename-profile', (_, { dir, newName }) => {
+    try {
+      profileManager.renameProfile(dir, newName);
+      profileManager.discoverProfiles();
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] Failed to rename profile:', e);
+      throw e;
+    }
+  });
+
+  ipcMain.handle('delete-profile', (_, { dir }) => {
+    try {
+      profileManager.deleteProfile(dir);
+      profileManager.discoverProfiles();
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] Failed to delete profile:', e);
+      throw e;
+    }
   });
 
   // Notification button handler
