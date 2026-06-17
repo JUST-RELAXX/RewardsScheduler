@@ -112,12 +112,14 @@ class Overlay
 
     static int offsetX, offsetY, width, height;
 
+
+
     [DllImport("user32.dll")]
     static extern bool SetProcessDPIAware();
 
     static void Main(string[] args)
     {
-        SetProcessDPIAware(); // Force Windows to stop virtualizing our coordinates
+        SetProcessDPIAware(); 
         
         if (args.Length < 6)
         {
@@ -135,7 +137,6 @@ class Overlay
         Console.WriteLine(string.Format("Waiting for BlueStacks window: {0}...", bsTitle));
         IntPtr bsHwnd = IntPtr.Zero;
         
-        // Wait up to 120 seconds for the window to exist
         for (int i = 0; i < 1200; i++)
         {
             bsHwnd = FindVisibleBlueStacksWindow(bsTitle);
@@ -149,35 +150,28 @@ class Overlay
             return;
         }
 
-        Console.WriteLine("BlueStacks window found! Stripping borders...");
-
-        // Calibration Log
-        RECT bsWindowRect, bsClientRect;
-        GetWindowRect(bsHwnd, out bsWindowRect);
-        GetClientRect(bsHwnd, out bsClientRect);
-        Console.WriteLine(string.Format(
-            "BS Window size: {0}x{1}, Client size: {2}x{3}",
-            bsWindowRect.Right - bsWindowRect.Left,
-            bsWindowRect.Bottom - bsWindowRect.Top,
-            bsClientRect.Right,
-            bsClientRect.Bottom
-        ));
-
         Console.WriteLine(string.Format("[Overlay-{0}] BlueStacks window found! Stripping borders...", bsTitle));
 
+        // Strip basic borders but DO NOT strip WS_POPUP (BlueStacks needs it to render)
         long style = GetWindowLongPtr(bsHwnd, GWL_STYLE).ToInt64();
         style &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
-        style |= WS_CHILD;
         SetWindowLongPtr(bsHwnd, GWL_STYLE, new IntPtr(style));
 
-        SetParent(bsHwnd, electronHwnd);
-
+        // Force frame recalculation
         SetWindowPos(bsHwnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
         Console.WriteLine(string.Format("[Overlay-{0}] Syncing position...", bsTitle));
 
         bool wasMinimized = false;
+        
+        // Constants to offset BlueStacks internal custom title bar and toolbar
+        const int BS_TITLE_H = 35;
+        const int BS_TOOLBAR_W = 26;
+        
+        IntPtr lastRgn = IntPtr.Zero;
+        int lastClipW = -1, lastClipH = -1;
 
+        // Thread to read layout updates from Electron
         Thread readerThread = new Thread(() =>
         {
             while (true)
@@ -194,21 +188,10 @@ class Overlay
                         int.TryParse(parts[2], out newWidth) &&
                         int.TryParse(parts[3], out newHeight))
                     {
-                        if (IsIconic(electronHwnd) || (newWidth == 0 && newHeight == 0))
-                        {
-                            if (!wasMinimized) {
-                                ShowWindow(bsHwnd, SW_HIDE);
-                                wasMinimized = true;
-                            }
-                            continue;
-                        }
-                        
-                        if (wasMinimized) {
-                            ShowWindow(bsHwnd, SW_SHOWNA);
-                            wasMinimized = false;
-                        }
-
-                        SetWindowPos(bsHwnd, IntPtr.Zero, newX, newY, newWidth, newHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+                        offsetX = newX;
+                        offsetY = newY;
+                        width = newWidth;
+                        height = newHeight;
                     }
                 }
             }
@@ -216,10 +199,56 @@ class Overlay
         readerThread.IsBackground = true;
         readerThread.Start();
 
-        // Keep main thread alive
+        // Main thread loops at 60fps to forcefully anchor the window to Electron's absolute screen coordinates
         while (true)
         {
-            Thread.Sleep(1000);
+            // If the host window is closed, exit
+            RECT hostRect;
+            if (!GetWindowRect(electronHwnd, out hostRect))
+            {
+                Console.WriteLine("[Overlay] Electron closed. Exiting.");
+                break;
+            }
+
+            // Check if minimized or if the tab is hidden (width=0)
+            if (IsIconic(electronHwnd) || (width == 0 && height == 0))
+            {
+                if (!wasMinimized) {
+                    ShowWindow(bsHwnd, SW_HIDE);
+                    wasMinimized = true;
+                }
+                Thread.Sleep(50);
+                continue;
+            }
+            else if (wasMinimized)
+            {
+                ShowWindow(bsHwnd, SW_SHOWNA);
+                wasMinimized = false;
+            }
+
+            // Convert client coordinates (relative to Electron viewport) to absolute screen coordinates
+            POINT pt = new POINT { X = offsetX, Y = offsetY };
+            ClientToScreen(electronHwnd, ref pt);
+
+            // Move the window exactly where the placeholder is on screen
+            SetWindowPos(bsHwnd, IntPtr.Zero, 
+                pt.X, 
+                pt.Y - BS_TITLE_H, 
+                width + BS_TOOLBAR_W, 
+                height + BS_TITLE_H, 
+                SWP_NOZORDER | SWP_NOACTIVATE);
+
+            // Hard clip: Only render the actual Android screen content, throwing away everything else
+            if (width != lastClipW || height != lastClipH)
+            {
+                IntPtr newRgn = CreateRectRgn(0, BS_TITLE_H, width, height + BS_TITLE_H);
+                SetWindowRgn(bsHwnd, newRgn, true);
+                lastRgn = newRgn;
+                lastClipW = width;
+                lastClipH = height;
+            }
+
+            Thread.Sleep(16); // Sync at roughly 60 FPS
         }
     }
 
@@ -244,11 +273,11 @@ class Overlay
                 if (title == expectedTitle)
                 {
                     exactHwnd = hWnd;
-                    return false; // Found exact match, stop
+                    return false; 
                 }
                 else if (title == "BlueStacks App Player" || title.Contains("BlueStacks A"))
                 {
-                    if (genericHwnd == IntPtr.Zero) genericHwnd = hWnd; // Save first visible generic match
+                    if (genericHwnd == IntPtr.Zero) genericHwnd = hWnd;
                 }
             }
             return true;
