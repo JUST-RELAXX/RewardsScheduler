@@ -232,9 +232,9 @@ class Overlay
             if (IsWindowVisible(hWnd))
             {
                 long windowStyle = GetWindowLongPtr(hWnd, GWL_STYLE).ToInt64();
-                if ((windowStyle & WS_CAPTION) == 0)
+                if ((windowStyle & WS_MAXIMIZEBOX) == 0)
                 {
-                    return true; // Skip splash screens or borderless windows (they lack a native title bar)
+                    return true; // Skip splash screens which lack the maximize box flag
                 }
 
                 System.Text.StringBuilder sb = new System.Text.StringBuilder(256);
