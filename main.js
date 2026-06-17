@@ -325,6 +325,15 @@ function stopSession() {
     mainWindow.unmaximize();
   }
 
+  // Forcefully kill any running BlueStacks instances
+  try {
+      require('child_process').exec('taskkill /F /IM "HD-Player.exe" /T', (err) => {
+          if (err) console.error('[Main] Error killing HD-Player.exe:', err.message);
+      });
+  } catch (e) {
+      console.error('[Main] Exception killing HD-Player.exe:', e.message);
+  }
+
   console.log('[Main] Session stopped');
 }
 
