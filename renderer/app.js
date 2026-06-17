@@ -718,14 +718,26 @@ async function startSession(profileDirs, searchMode = 'edge') {
             const newW = Math.round(updatedRect.width * dpr);
             const newH = Math.round(updatedRect.height * dpr);
             
-            if (newX !== lastX || newY !== lastY || newW !== lastW || newH !== lastH) {
-                lastX = newX; lastY = newY; lastW = newW; lastH = newH;
+            // Calculate clip bounds against the scrollable container
+            const gridRect = dom.webviewGrid.getBoundingClientRect();
+            let clipTop = updatedRect.top < gridRect.top ? gridRect.top - updatedRect.top : 0;
+            let clipBottom = updatedRect.bottom > gridRect.bottom ? updatedRect.bottom - gridRect.bottom : 0;
+            let clipLeft = updatedRect.left < gridRect.left ? gridRect.left - updatedRect.left : 0;
+            let clipRight = updatedRect.right > gridRect.right ? updatedRect.right - gridRect.right : 0;
+
+            // Prevent negative values if completely out of view
+            clipTop = Math.max(0, Math.round(clipTop * dpr));
+            clipBottom = Math.max(0, Math.round(clipBottom * dpr));
+            clipLeft = Math.max(0, Math.round(clipLeft * dpr));
+            clipRight = Math.max(0, Math.round(clipRight * dpr));
+            
+            const stateKey = `${newX},${newY},${newW},${newH},${clipTop},${clipBottom},${clipLeft},${clipRight}`;
+            if (stateKey !== lastX) { // repurpose lastX as stateKey string
+                lastX = stateKey;
                 ipcRenderer.invoke('update-bluestacks-bounds', {
                     index: index,
-                    x: newX,
-                    y: newY,
-                    width: newW,
-                    height: newH
+                    x: newX, y: newY, width: newW, height: newH,
+                    clipTop, clipLeft, clipRight, clipBottom
                 }).catch(() => {});
             }
         };

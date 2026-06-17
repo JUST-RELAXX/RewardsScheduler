@@ -169,7 +169,9 @@ class Overlay
         const int BS_TOOLBAR_W = 26;
         
         IntPtr lastRgn = IntPtr.Zero;
-        int lastClipW = -1, lastClipH = -1;
+        int lastClipW = -1, lastClipH = -1, lastClipT = -1, lastClipB = -1, lastClipL = -1, lastClipR = -1;
+
+        int clipTop = 0, clipLeft = 0, clipRight = 0, clipBottom = 0;
 
         // Thread to read layout updates from Electron
         Thread readerThread = new Thread(() =>
@@ -180,7 +182,7 @@ class Overlay
                 if (line == null || line == "exit") Environment.Exit(0);
 
                 string[] parts = line.Split(',');
-                if (parts.Length == 4)
+                if (parts.Length >= 4)
                 {
                     int newX, newY, newWidth, newHeight;
                     if (int.TryParse(parts[0], out newX) &&
@@ -192,6 +194,14 @@ class Overlay
                         offsetY = newY;
                         width = newWidth;
                         height = newHeight;
+                        
+                        if (parts.Length >= 8)
+                        {
+                            int.TryParse(parts[4], out clipTop);
+                            int.TryParse(parts[5], out clipLeft);
+                            int.TryParse(parts[6], out clipRight);
+                            int.TryParse(parts[7], out clipBottom);
+                        }
                     }
                 }
             }
@@ -231,21 +241,37 @@ class Overlay
             ClientToScreen(electronHwnd, ref pt);
 
             // Move the window exactly where the placeholder is on screen
-            SetWindowPos(bsHwnd, IntPtr.Zero, 
+            // Use HWND_TOPMOST (-1) to pin the window as requested
+            SetWindowPos(bsHwnd, new IntPtr(-1), 
                 pt.X, 
                 pt.Y - BS_TITLE_H, 
                 width + BS_TOOLBAR_W, 
                 height + BS_TITLE_H, 
-                SWP_NOZORDER | SWP_NOACTIVATE);
+                SWP_NOACTIVATE);
 
-            // Hard clip: Only render the actual Android screen content, throwing away everything else
-            if (width != lastClipW || height != lastClipH)
+            // Hard clip: Only render the actual Android screen content inside the scrolling viewport
+            if (width != lastClipW || height != lastClipH || clipTop != lastClipT || clipBottom != lastClipB || clipLeft != lastClipL || clipRight != lastClipR)
             {
-                IntPtr newRgn = CreateRectRgn(0, BS_TITLE_H, width, height + BS_TITLE_H);
+                // Ensure clip values don't create an invalid region (e.g., negative width/height)
+                int rgnLeft = Math.Min(width, clipLeft);
+                int rgnTop = BS_TITLE_H + Math.Min(height, clipTop);
+                int rgnRight = Math.Max(0, width - clipRight);
+                int rgnBottom = Math.Max(0, height + BS_TITLE_H - clipBottom);
+
+                // Prevent creating an inverted region
+                if (rgnRight < rgnLeft) rgnRight = rgnLeft;
+                if (rgnBottom < rgnTop) rgnBottom = rgnTop;
+
+                IntPtr newRgn = CreateRectRgn(rgnLeft, rgnTop, rgnRight, rgnBottom);
                 SetWindowRgn(bsHwnd, newRgn, true);
+                
                 lastRgn = newRgn;
                 lastClipW = width;
                 lastClipH = height;
+                lastClipT = clipTop;
+                lastClipB = clipBottom;
+                lastClipL = clipLeft;
+                lastClipR = clipRight;
             }
 
             Thread.Sleep(16); // Sync at roughly 60 FPS

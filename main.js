@@ -461,9 +461,10 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('update-bluestacks-bounds', (_, { index, x, y, width, height }) => {
+  ipcMain.handle('update-bluestacks-bounds', (_, { index, x, y, width, height, clipTop, clipLeft, clipRight, clipBottom }) => {
      if (global.overlayProcs && global.overlayProcs[index]) {
-         global.overlayProcs[index].stdin.write(`${x},${y},${width},${height}\n`);
+         const clipStr = (clipTop !== undefined) ? `,${clipTop},${clipLeft},${clipRight},${clipBottom}` : ',0,0,0,0';
+         global.overlayProcs[index].stdin.write(`${x},${y},${width},${height}${clipStr}\n`);
      }
   });
 
