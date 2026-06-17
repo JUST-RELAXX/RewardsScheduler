@@ -70,6 +70,7 @@ function createMainWindow() {
     minWidth: 900,
     minHeight: 650,
     frame: false,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     backgroundColor: '#0a0e1a',
     webPreferences: {
       nodeIntegration: true,
@@ -230,6 +231,7 @@ async function startSession(profileDirs, searchMode = 'edge') {
       for (let i = 0; i < profileDirs.length; i++) {
         const inst = instances[i];
         console.log(`[Main] Launching BlueStacks instance: ${inst.name} on adb port ${inst.port}`);
+        sendToRenderer('session-update', { message: `[SYS] Initializing BlueStacks instance: ${inst.name}...` });
         
         // Launch the instance
         const child = require('child_process').spawn(bsPath, ['--instance', inst.name], { detached: true });
@@ -240,6 +242,7 @@ async function startSession(profileDirs, searchMode = 'edge') {
             try {
                 // Wait for Android to finish booting (poll up to 120s)
                 console.log(`[Main] Waiting for Android boot sequence on ${inst.name}...`);
+                sendToRenderer('session-update', { message: `[SYS] Waiting for Android boot sequence on ${inst.name}...` });
                 const adbPath = 'C:\\Program Files\\BlueStacks_nxt\\HD-Adb.exe';
                 const bsConfPath = 'E:\\TAUDIOS\\BlueStacks_nxt\\bluestacks.conf';
                 let booted = false;
@@ -261,6 +264,7 @@ async function startSession(profileDirs, searchMode = 'edge') {
                         const { stdout } = await exec(`"${adbPath}" -s 127.0.0.1:${activeAdbPort} shell getprop sys.boot_completed`, { timeout: 3000 });
                         if (stdout.trim() === '1') { 
                             console.log(`[Main] ✓ Android boot completed on port ${activeAdbPort} (attempt ${attempt})`);
+                            sendToRenderer('session-update', { message: `[SYS] ✓ Android boot completed on ${inst.name}` });
                             inst.port = activeAdbPort; // Save the working port
                             booted = true; 
                             break; 
@@ -273,15 +277,18 @@ async function startSession(profileDirs, searchMode = 'edge') {
 
                 if (!booted) { 
                     console.error(`[Main] ✗ Android boot timeout for ${inst.name}`); 
+                    sendToRenderer('session-update', { message: `[SYS] ✗ Android boot timeout for ${inst.name}` });
                     // Let's attempt to launch Bing anyway just in case the prop check was failing
                 }
 
                 // Give launcher 4 seconds to settle after boot
                 console.log(`[Main] Settling launcher...`);
+                sendToRenderer('session-update', { message: `[SYS] Settling launcher for ${inst.name}...` });
                 await new Promise(r => setTimeout(r, 4000));
 
                 // Launch Bing app
                 console.log(`[Main] Launching Bing in ${inst.name}...`);
+                sendToRenderer('session-update', { message: `[SYS] Launching Bing App in ${inst.name}...` });
                 const { stdout, stderr } = await exec(
                     `"${adbPath}" -s 127.0.0.1:${inst.port} shell monkey -p com.microsoft.bing -c android.intent.category.LAUNCHER 1`,
                     { timeout: 10000 }
@@ -289,8 +296,10 @@ async function startSession(profileDirs, searchMode = 'edge') {
                 
                 if (stdout.includes('Events injected: 1')) {
                     console.log(`[Main] ✓ Bing successfully launched in ${inst.name}`);
+                    sendToRenderer('session-update', { message: `[SYS] ✓ Bing successfully launched in ${inst.name}` });
                 } else {
                     console.error(`[Main] ✗ Bing launch failed in ${inst.name}. Stdout: ${stdout.trim()}, Stderr: ${stderr ? stderr.trim() : ''}`);
+                    sendToRenderer('session-update', { message: `[SYS] ✗ Bing launch failed in ${inst.name}` });
                 }
             } catch(e) {
                 console.error(`[Main] Automation error for ${inst.name}:`, e.message);

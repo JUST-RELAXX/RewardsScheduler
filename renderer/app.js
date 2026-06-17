@@ -31,7 +31,7 @@ const dom = {};
 function initDOM() {
   [
     'liveClock', 'statusIcon', 'statusText', 'statusTimer',
-    'accountsGrid', 'doneCounter', 'btnRunAll', 'btnRunSelected',
+    'accountsGrid', 'doneCounter', 'btnRunAll', 'btnRunSelected', 'btnSelectAll',
     'btnRefreshProfiles', 'closePromptModal', 'closePromptText',
     'btnCloseMistake', 'btnCloseIntentional', 'settingsOverlay',
     'btnCloseSettings', 'btnSaveSettings', 'setSearchCount',
