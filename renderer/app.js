@@ -293,7 +293,11 @@ function setupUI() {
     pendingRunProfiles = null;
   });
 
-  document.getElementById('btnModeBingApp')?.addEventListener('click', () => {
+  document.getElementById('btnModeBingApp')?.addEventListener('click', (e) => {
+    if (pendingRunProfiles && pendingRunProfiles.length > 1) {
+        e.preventDefault();
+        return; // Blocked for multiple profiles
+    }
     searchModeModal.style.display = 'none';
     if (pendingRunProfiles) startSession(pendingRunProfiles, 'bluestacks');
     pendingRunProfiles = null;
@@ -317,6 +321,15 @@ function setupUI() {
       return;
     }
     pendingRunProfiles = undone;
+    const blockedOverlay = document.getElementById('bingBlockedOverlay');
+    const bingBtn = document.getElementById('btnModeBingApp');
+    if (pendingRunProfiles.length > 1) {
+        if (blockedOverlay) blockedOverlay.style.display = 'flex';
+        if (bingBtn) { bingBtn.style.opacity = '0.6'; bingBtn.style.cursor = 'not-allowed'; }
+    } else {
+        if (blockedOverlay) blockedOverlay.style.display = 'none';
+        if (bingBtn) { bingBtn.style.opacity = '1'; bingBtn.style.cursor = 'pointer'; }
+    }
     searchModeModal.style.display = 'flex';
   });
 
@@ -327,6 +340,15 @@ function setupUI() {
       return;
     }
     pendingRunProfiles = [...selectedProfiles];
+    const blockedOverlay = document.getElementById('bingBlockedOverlay');
+    const bingBtn = document.getElementById('btnModeBingApp');
+    if (pendingRunProfiles.length > 1) {
+        if (blockedOverlay) blockedOverlay.style.display = 'flex';
+        if (bingBtn) { bingBtn.style.opacity = '0.6'; bingBtn.style.cursor = 'not-allowed'; }
+    } else {
+        if (blockedOverlay) blockedOverlay.style.display = 'none';
+        if (bingBtn) { bingBtn.style.opacity = '1'; bingBtn.style.cursor = 'pointer'; }
+    }
     searchModeModal.style.display = 'flex';
   });
 
@@ -338,6 +360,10 @@ function setupUI() {
 
   // Window controls
   on(dom.btnMinimize, 'click', () => ipcRenderer.send('window-minimize'));
+  const btnMaximize = document.getElementById('btnMaximize');
+  if (btnMaximize) {
+      on(btnMaximize, 'click', () => ipcRenderer.send('window-toggle-maximize'));
+  }
   on(dom.btnClose, 'click', () => ipcRenderer.send('window-close'));
 
   // Select All

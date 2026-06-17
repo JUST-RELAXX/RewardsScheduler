@@ -554,12 +554,14 @@ function setupIPC() {
     if (mainWindow) mainWindow.hide();
   });
 
-  ipcMain.on('window-maximize', () => {
-    if (mainWindow) mainWindow.maximize();
-  });
-
-  ipcMain.on('window-unmaximize', () => {
-    if (mainWindow) mainWindow.unmaximize();
+  ipcMain.on('window-toggle-maximize', () => {
+    if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+        } else {
+            mainWindow.maximize();
+        }
+    }
   });
 }
 
