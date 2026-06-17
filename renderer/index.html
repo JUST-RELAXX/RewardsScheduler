@@ -12,7 +12,7 @@
   <!-- Custom Title Bar -->
   <div class="titlebar" id="titlebar">
     <div class="titlebar-left">
-      <span class="titlebar-icon">💎</span>
+      <span class="titlebar-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; color: #00b0ff;"><polygon points="12 2 2 7 12 22 22 7 12 2"/><polyline points="2 7 12 7 22 7"/><polyline points="12 22 12 7"/></svg></span>
       <span class="titlebar-title">MS Rewards Scheduler</span>
       <span class="titlebar-badge" id="versionBadge">v2.0</span>
     </div>
@@ -34,7 +34,7 @@
     <div id="dashboardView">
       <!-- Status Banner -->
       <div class="status-banner" id="statusBanner">
-        <div class="status-icon" id="statusIcon">🟢</div>
+        <div class="status-icon" id="statusIcon"><svg viewBox="0 0 24 24" width="14" height="14" fill="#10b981" stroke="none" style="vertical-align: text-bottom; filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));"><circle cx="12" cy="12" r="8"/></svg></div>
         <div class="status-text" id="statusText">Ready — Select accounts and start your session</div>
         <div class="status-timer" id="statusTimer"></div>
       </div>
@@ -54,16 +54,16 @@
       <!-- Quick Actions Bar -->
       <div class="action-bar">
         <button class="action-btn primary" id="btnRunAll">
-          <span class="btn-icon">🚀</span>
+          <span class="btn-icon"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
           <span class="btn-label">Run All Accounts</span>
         </button>
         <button class="action-btn accent" id="btnRunSelected">
-          <span class="btn-icon">✅</span>
+          <span class="btn-icon"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
           <span class="btn-label">Run Selected</span>
         </button>
         <div class="action-spacer"></div>
         <button class="action-btn ghost" id="btnRefreshProfiles" title="Refresh Profiles">
-          <span class="btn-icon">🔄</span>
+          <span class="btn-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></span>
           <span class="btn-label" style="margin-left: 6px;">Refresh</span>
         </button>
       </div>
@@ -94,7 +94,7 @@
         
         <!-- Module 1: Dashboard -->
         <div class="module dashboard-module">
-          <div class="module-header">📊 Dashboard</div>
+          <div class="module-header"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg> Dashboard</div>
           <div class="holistic-points-container">
             <span id="holisticPointsCounter">0</span>
             <span class="pts-label">PTS</span>
@@ -120,7 +120,7 @@
         <!-- Module 2: Console -->
         <div class="module console-module">
           <div class="module-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>⌨️ Console</span>
+            <span><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Console</span>
             <button class="console-toggle" id="btnToggleConsole" title="Toggle console size" style="background: none; border: none; color: #b0bec5; cursor: pointer; font-size: 10px;">▼</button>
           </div>
           <div class="console-body" id="consoleBody">
@@ -134,13 +134,13 @@
           <!-- Module 3a: Controls -->
           <div class="module controls-module" style="flex: 0 0 auto;">
             <div class="module-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-              <span>🎮 Controls</span>
+              <span><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Controls</span>
               <button class="action-btn danger session-stop-btn" id="btnStopSession" style="padding:4px 8px; font-size:11px; min-height:0; width:auto;">
-                <span class="btn-icon" style="margin-right:4px;">⏹️</span><span class="btn-label">Stop</span>
+                <span class="btn-icon" style="margin-right:4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg></span><span class="btn-label">Stop</span>
               </button>
             </div>
             <div class="global-actions" style="display:flex; gap:10px;">
-              <button id="btnGlobalRefresh" class="action-btn ghost" style="flex:1; font-size:11px; min-height:0; padding:6px; border:1px solid rgba(255,255,255,0.1); justify-content:center;">🔄 Refresh All</button>
+              <button id="btnGlobalRefresh" class="action-btn ghost" style="flex:1; font-size:11px; min-height:0; padding:6px; border:1px solid rgba(255,255,255,0.1); justify-content:center;"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg> Refresh All</button>
               <button id="btnGlobalStart" class="action-btn accent" style="flex:1; font-size:11px; min-height:0; padding:6px; justify-content:center; background: #00b0ff; color: #fff;">▶ START GLOBAL</button>
             </div>
           </div>
@@ -148,7 +148,7 @@
           <!-- Module 3b: Holistic Settings -->
           <div class="module holistic-module" style="flex: 1;">
             <div class="module-header">
-              <span>⚙️ Holistic Settings</span>
+              <span><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Holistic Settings</span>
             </div>
           
           <div class="control-group" style="margin-bottom: 10px;">
@@ -178,7 +178,7 @@
                 </div>
               </div>
               <!-- PROFILE FLASH BUTTON -->
-              <button id="btnProfileFlash" class="flash-btn" style="width:100%; margin-top:10px; padding: 10px; font-size: 13px; flex-shrink: 0; min-height: 40px; display: flex; align-items: center; justify-content: center; line-height: 1;">ACTIVATE FLASH ⚡</button>
+              <button id="btnProfileFlash" class="flash-btn" style="width:100%; margin-top:10px; padding: 10px; font-size: 13px; flex-shrink: 0; min-height: 40px; display: flex; align-items: center; justify-content: center; line-height: 1;">ACTIVATE FLASH <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-left: 6px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button>
               <div id="profFlashCountdown" class="fiery-text" style="display:none; margin-top:10px; text-align:center;">FINISH IN: --</div>
 
               <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
@@ -243,7 +243,7 @@
               </div>
 
               <div style="margin-top:12px; border-top:1px dashed #e3e3e3; padding-top:10px;">
-                <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px;">⌨️ Typing Behavior</div>
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M4 8h16v8H4z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg> Typing Behavior</div>
                 
                 <label class="setting-label" style="font-size: 11px; display:block; margin-bottom:4px;">Typing Speed (ms per character):</label>
                 <div class="input-group" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
@@ -281,7 +281,7 @@
     <div class="settings-overlay" id="settingsOverlay" style="display:none;">
       <div class="settings-card">
         <div class="settings-header">
-          <h3>⚙️ Settings</h3>
+          <h3><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</h3>
           <button class="close-settings" id="btnCloseSettings">✕</button>
         </div>
         <div class="settings-body">
@@ -307,7 +307,7 @@
             </label>
           </div>
           <button class="action-btn primary" id="btnSaveSettings" style="width:100%;margin-top:16px;">
-            <span class="btn-label">💾 Save Settings</span>
+            <span class="btn-label"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Settings</span>
           </button>
         </div>
       </div>
@@ -330,17 +330,55 @@
       </div>
     </div>
 
+    <!-- Search Mode Selector Modal -->
+    <div class="settings-overlay" id="searchModeModal" style="display:none; z-index: 20000; backdrop-filter: blur(8px); background: rgba(10, 14, 26, 0.85);">
+      <div class="settings-card" style="max-width: 420px; text-align: left; padding: 32px; background: #121826; border: 1px solid #232d42; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+        <div class="settings-header" style="margin-bottom: 24px;">
+          <h3 style="font-size: 18px; color: #fff; font-weight: 600; margin: 0;">Select Execution Environment</h3>
+          <div style="font-size: 12px; color: #8899aa; margin-top: 6px;">Choose the platform to run the automation sequence.</div>
+        </div>
+        <div class="settings-body" style="display: flex; flex-direction: column; gap: 12px;">
+          
+          <button class="action-btn" id="btnModeEdge" style="display: flex; align-items: center; justify-content: flex-start; padding: 16px 20px; font-size: 15px; border-radius: 8px; background: #1a2235; border: 1px solid #2a3548; color: #e2e8f0; cursor: pointer; transition: all 0.2s ease;">
+            <span class="btn-icon" style="display: flex; align-items: center; margin-right: 16px; color: #3b82f6;">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </span>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span class="btn-label" style="font-weight: 600; letter-spacing: 0.3px;">Microsoft Edge (Desktop)</span>
+              <span style="font-size: 11px; color: #718096; margin-top: 2px;">Standard browser automation</span>
+            </div>
+          </button>
+          
+          <button class="action-btn" id="btnModeBingApp" style="display: flex; align-items: center; justify-content: flex-start; padding: 16px 20px; font-size: 15px; border-radius: 8px; background: #1a2235; border: 1px solid #2a3548; color: #e2e8f0; cursor: pointer; transition: all 0.2s ease;">
+            <span class="btn-icon" style="display: flex; align-items: center; margin-right: 16px; color: #10b981;">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            </span>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+              <span class="btn-label" style="font-weight: 600; letter-spacing: 0.3px;">Bing Application (Android)</span>
+              <span style="font-size: 11px; color: #718096; margin-top: 2px;">Requires BlueStacks emulator</span>
+            </div>
+          </button>
+          
+          <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+            <button class="action-btn ghost" id="btnSearchModeCancel" style="padding: 10px 24px; font-size: 13px; font-weight: 500; border-radius: 6px;">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Custom Context Menu -->
     <div id="profileContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
-      <div class="ctx-item" id="ctxMarkDone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✅ Mark as done</div>
-      <div class="ctx-item" id="ctxMarkUndone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">❌ Mark as pending</div>
-      <div class="ctx-item" id="ctxRenameProfile" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;">✏️ Rename Profile</div>
-      <div class="ctx-item" id="ctxDeleteProfile" style="padding: 8px 12px; color: #ff5252; font-size: 12px; cursor: pointer; border-radius: 4px;">🗑️ Delete Profile</div>
+      <div class="ctx-item" id="ctxMarkDone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px; color:#10b981;"><polyline points="20 6 9 17 4 12"/></svg> Mark as done</div>
+      <div class="ctx-item" id="ctxMarkUndone" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px; color:#ef4444;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Mark as pending</div>
+      <div class="ctx-item" id="ctxRenameProfile" style="padding: 8px 12px; color: #fff; font-size: 12px; cursor: pointer; border-radius: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px; color:#f59e0b;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Rename Profile</div>
+      <div class="ctx-item" id="ctxDeleteProfile" style="padding: 8px 12px; color: #ff5252; font-size: 12px; cursor: pointer; border-radius: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px; color:#ff5252;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete Profile</div>
     </div>
 
     <!-- Global Points Context Menu -->
     <div id="globalPointsContextMenu" style="display: none; position: absolute; background: #1a2235; border: 1px solid #2a354a; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px; z-index: 10000; min-width: 140px;">
-      <div class="ctx-item" id="ctxResetGlobalPoints" style="padding: 8px 12px; color: #ffeb3b; font-size: 12px; cursor: pointer; border-radius: 4px;">🔄 Reset global points & start fresh</div>
+      <div class="ctx-item" id="ctxResetGlobalPoints" style="padding: 8px 12px; color: #ffeb3b; font-size: 12px; cursor: pointer; border-radius: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg> Reset global points & start fresh</div>
     </div>
 
     <!-- Engine Script -->

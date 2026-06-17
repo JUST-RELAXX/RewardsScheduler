@@ -1334,3 +1334,12 @@ body {
   color: #aaa;
   text-shadow: none;
 }
+
+/* Universal Icon Alignment Fix */
+svg { vertical-align: middle !important; margin-right: 6px !important; display: inline-block; transform: translateY(1.5px) !important; }
+.btn-icon svg, .status-icon svg { margin-right: 0 !important; }
+.btn-icon, .status-icon { display: flex !important; align-items: center !important; justify-content: center !important; }
+.module-header, .module-header > span { display: flex !important; align-items: center !important; gap: 6px; }
+.toggle-extension-btn { display: inline-flex !important; align-items: center !important; gap: 6px; }
+.module-header svg { margin-right: 0 !important; }
+

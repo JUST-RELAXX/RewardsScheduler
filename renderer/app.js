@@ -132,7 +132,7 @@ function renderGrid() {
   if (profiles.length === 0) {
     dom.accountsGrid.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:#667788;">
-        <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+        <div style="font-size:40px;margin-bottom:12px;"><svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: #667788;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
         <div style="font-size:15px;font-weight:500;">Loading Edge profiles...</div>
         <div style="font-size:12px;margin-top:6px;">If this persists, restart the app</div>
       </div>`;
@@ -150,10 +150,10 @@ function renderGrid() {
     if (p.searchStatus === 'keepalive') card.classList.add('keepalive');
 
     let badgeClass = 'badge-pending', badgeText = 'Pending';
-    if (p.searchesDone && p.onlineTimeDone) { badgeClass = 'badge-done'; badgeText = '✅ Done'; }
+    if (p.searchesDone && p.onlineTimeDone) { badgeClass = 'badge-done'; badgeText = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>Done'; }
     else if (p.searchesDone) { badgeClass = 'badge-done-earlier'; badgeText = 'Searches Done'; }
-    else if (p.searchStatus === 'searching') { badgeClass = 'badge-searching'; badgeText = '🔍 Searching'; }
-    else if (p.searchStatus === 'keepalive') { badgeClass = 'badge-keepalive'; badgeText = '💤 Keep-Alive'; }
+    else if (p.searchStatus === 'searching') { badgeClass = 'badge-searching'; badgeText = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Searching'; }
+    else if (p.searchStatus === 'keepalive') { badgeClass = 'badge-keepalive'; badgeText = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Keep-Alive'; }
 
     const pct = p.searchesDone ? 100 : (p.total > 0 ? Math.min(100, Math.round((p.executed / p.total) * 100)) : 0);
     const progressClass = p.searchesDone ? 'done' : (p.searchStatus === 'searching' ? 'active' : '');
@@ -284,6 +284,26 @@ function setupUI() {
   if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
   if (dom.btnRefreshProfiles) dom.btnRefreshProfiles.style.display = 'flex';
 
+  let pendingRunProfiles = null;
+  const searchModeModal = document.getElementById('searchModeModal');
+
+  document.getElementById('btnModeEdge')?.addEventListener('click', () => {
+    searchModeModal.style.display = 'none';
+    if (pendingRunProfiles) startSession(pendingRunProfiles, 'edge');
+    pendingRunProfiles = null;
+  });
+
+  document.getElementById('btnModeBingApp')?.addEventListener('click', () => {
+    searchModeModal.style.display = 'none';
+    if (pendingRunProfiles) startSession(pendingRunProfiles, 'bluestacks');
+    pendingRunProfiles = null;
+  });
+
+  document.getElementById('btnSearchModeCancel')?.addEventListener('click', () => {
+    searchModeModal.style.display = 'none';
+    pendingRunProfiles = null;
+  });
+
   // Run All
   on(dom.btnRunAll, 'click', async () => {
     if (!profilesLoaded || profiles.length === 0) {
@@ -296,7 +316,8 @@ function setupUI() {
       setStatus('🎉', 'All accounts are already done today!', 'success');
       return;
     }
-    await startSession(undone);
+    pendingRunProfiles = undone;
+    searchModeModal.style.display = 'flex';
   });
 
   // Run Selected
@@ -305,7 +326,8 @@ function setupUI() {
       setStatus('⚠️', 'Select at least one account first!', 'warning');
       return;
     }
-    await startSession([...selectedProfiles]);
+    pendingRunProfiles = [...selectedProfiles];
+    searchModeModal.style.display = 'flex';
   });
 
   // Stop
@@ -605,8 +627,8 @@ function addLogEntry(text, type = 'info') {
 }
 
 // ─── Session ───
-async function startSession(profileDirs) {
-  const result = await ipcRenderer.invoke('start-session', profileDirs);
+async function startSession(profileDirs, searchMode = 'edge') {
+  const result = await ipcRenderer.invoke('start-session', { profileDirs, searchMode });
   if (!result.success) {
     setStatus('❌', result.error || 'Failed to start session', 'error');
     return;
@@ -618,6 +640,12 @@ async function startSession(profileDirs) {
   dom.sessionView.style.display = 'flex';
   dom.consoleBody.innerHTML = '';
   dom.webviewGrid.innerHTML = '';
+  
+  // Clean up any existing intervals
+  if (window.bsIntervals) {
+      window.bsIntervals.forEach(id => clearInterval(id));
+      window.bsIntervals = [];
+  }
   
   // Clear any existing instances from previous sessions to prevent zombie ghosting
   for (let key in extensionInstances) {
@@ -633,6 +661,86 @@ async function startSession(profileDirs) {
     const p = profiles.find(pr => pr.dir === dir);
     if (p) p.searchStatus = 'waiting';
 
+    if (searchMode === 'bluestacks') {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'webview-wrapper';
+      wrapper.style.display = 'flex';
+      wrapper.style.flexDirection = 'column';
+      
+      wrapper.innerHTML = `
+        <div class="webview-header" style="justify-content: space-between; border-bottom: 1px solid #1a2235;">
+          <span class="webview-title">📱 ${esc(p ? p.displayName : dir)}</span>
+        </div>
+        <div style="flex:1; width:100%; height:100%; display: flex; align-items: center; justify-content: center; background: #0a0e1a; padding: 10px;">
+           <div id="bsPlaceholder-${index}" style="aspect-ratio: 9/16; height: 100%; max-width: 100%; background: #0f1524; position: relative; border-radius: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #1a2235;">
+             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align:center; color: #475569;">
+               <div style="margin-bottom: 12px; display: flex; justify-content: center; color: #64748b;">
+                 <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                 </svg>
+               </div>
+               <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.5px;">Waiting for Engine...</div>
+               <div style="font-size: 10px; margin-top: 6px; opacity: 0.7;">Overlay initializing</div>
+             </div>
+           </div>
+        </div>
+      `;
+      dom.webviewGrid.appendChild(wrapper);
+
+      // Report dimensions immediately to allow overlay.exe to wait for the window and snap it instantly
+      setTimeout(() => {
+        const placeholder = wrapper.querySelector(`#bsPlaceholder-${index}`);
+        if (!placeholder) return;
+        const rect = placeholder.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        
+        ipcRenderer.invoke('dock-bluestacks', {
+          index: index,
+          x: Math.round(rect.left * dpr),
+          y: Math.round(rect.top * dpr),
+          width: Math.round(rect.width * dpr),
+          height: Math.round(rect.height * dpr)
+        }).catch(err => console.error("Dock error:", err));
+        
+        // Start tracking size and position continuously at ~60 FPS
+        let lastX, lastY, lastW, lastH;
+        
+        const trackBounds = () => {
+            if (!placeholder.isConnected) return; // Stop if removed from DOM
+            const updatedRect = placeholder.getBoundingClientRect();
+            // If the element is hidden (e.g. tab switched), don't send 0,0,0,0 which hides the window
+            if (updatedRect.width === 0 && updatedRect.height === 0) return;
+            
+            const dpr = window.devicePixelRatio || 1;
+            const newX = Math.round(updatedRect.left * dpr);
+            const newY = Math.round(updatedRect.top * dpr);
+            const newW = Math.round(updatedRect.width * dpr);
+            const newH = Math.round(updatedRect.height * dpr);
+            
+            if (newX !== lastX || newY !== lastY || newW !== lastW || newH !== lastH) {
+                lastX = newX; lastY = newY; lastW = newW; lastH = newH;
+                ipcRenderer.invoke('update-bluestacks-bounds', {
+                    index: index,
+                    x: newX,
+                    y: newY,
+                    width: newW,
+                    height: newH
+                }).catch(() => {});
+            }
+        };
+
+        const intervalId = setInterval(trackBounds, 16);
+        
+        // Store the interval so we can clear it later
+        if (!window.bsIntervals) window.bsIntervals = [];
+        window.bsIntervals.push(intervalId);
+
+      }, 100); 
+
+      return;
+    }
+
     // Create wrapper for webview and extension panel
     const wrapper = document.createElement('div');
     wrapper.className = 'webview-wrapper';
@@ -642,8 +750,8 @@ async function startSession(profileDirs) {
       <div class="webview-header">
         <span class="webview-title">${esc(p ? p.displayName : dir)}</span>
         <div>
-          <button class="toggle-extension-btn" id="toggleGraph-${index}" style="margin-right: 5px;">📊 Graph</button>
-          <button class="toggle-extension-btn" id="toggle-${index}">⚙️ Config</button>
+          <button class="toggle-extension-btn" id="toggleGraph-${index}" style="margin-right: 5px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Graph</button>
+          <button class="toggle-extension-btn" id="toggle-${index}"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Config</button>
         </div>
       </div>
       <webview id="wv-${index}" src="https://www.bing.com" partition="persist:${dir}" 
@@ -1113,8 +1221,19 @@ function setupIPC() {
 }
 
 // ─── Helpers ───
-function setStatus(icon, text, type) {
-  if (dom.statusIcon) dom.statusIcon.textContent = icon;
+const STATUS_ICONS = {
+  warning: '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; color:#f59e0b;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  error: '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; color:#ef4444;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  success: '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; color:#10b981;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  info: '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; color:#3b82f6;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  ready: '<svg viewBox="0 0 24 24" width="14" height="14" fill="#10b981" stroke="none" style="vertical-align: text-bottom; filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));"><circle cx="12" cy="12" r="8"/></svg>'
+};
+
+function setStatus(iconArg, text, type) {
+  let iconHtml = STATUS_ICONS[type] || STATUS_ICONS.info;
+  if (text.startsWith('Ready')) iconHtml = STATUS_ICONS.ready;
+
+  if (dom.statusIcon) dom.statusIcon.innerHTML = iconHtml;
   if (dom.statusText) dom.statusText.textContent = text;
   const banner = dom.statusIcon?.closest('.status-banner');
   if (banner) {

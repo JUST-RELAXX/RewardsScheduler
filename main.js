@@ -2,6 +2,9 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { exec: execCb } = require('child_process');
+const { promisify } = require('util');
+const exec = promisify(execCb);
 
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.bhoomi.msrewardsscheduler');
@@ -176,7 +179,7 @@ function createTray() {
 }
 
 // ─── Session Orchestration (simplified — renderer handles webviews) ───
-async function startSession(profileDirs) {
+async function startSession(profileDirs, searchMode = 'edge') {
   if (sessionActive) {
     console.log('[Main] Session already active');
     return { success: false, error: 'Session already running' };
@@ -189,12 +192,124 @@ async function startSession(profileDirs) {
   // Mark profiles as in-progress
   profileDirs.forEach(dir => tracker.markInProgress(dir));
 
-  // Maximize the window to fit all webviews
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.maximize();
+  if (searchMode === 'bluestacks') {
+    console.log(`[Main] Launching ${profileDirs.length} instances...`);
+    // Find BlueStacks instances
+    const getBlueStacksInstances = () => {
+      const bsConfPath = 'E:\\TAUDIOS\\BlueStacks_nxt\\bluestacks.conf';
+      if (!fs.existsSync(bsConfPath)) {
+        throw new Error('BlueStacks configuration not found. Is BlueStacks 5 installed?');
+      }
+      
+      const confData = fs.readFileSync(bsConfPath, 'utf8');
+      const instanceMatches = [...confData.matchAll(/bst\.instance\.(.*?)\.adb_port="(.*?)"/g)];
+      
+      const instances = instanceMatches.map(m => ({ name: m[1], port: m[2] })).filter(i => !i.name.endsWith('.status'));
+      
+      instances.forEach(inst => {
+          const titleMatch = confData.match(new RegExp(`bst\\.instance\\.${inst.name}\\.display_name="(.*?)"`));
+          inst.title = titleMatch ? titleMatch[1] : "BlueStacks App Player";
+      });
+      return instances;
+    };
+      
+    try {
+      const instances = getBlueStacksInstances();
+      global.sessionBlueStacksInstances = instances;
+      
+      if (instances.length < profileDirs.length) {
+        throw new Error(`You selected ${profileDirs.length} profiles, but only have ${instances.length} BlueStacks instances. Please clone more instances in Multi-Instance Manager.`);
+      }
+
+      const bsPath = 'C:\\Program Files\\BlueStacks_nxt\\HD-Player.exe';
+      
+      if (!fs.existsSync(bsPath)) {
+        throw new Error('BlueStacks executable not found in C:\\Program Files\\BlueStacks_nxt\\');
+      }
+
+      for (let i = 0; i < profileDirs.length; i++) {
+        const inst = instances[i];
+        console.log(`[Main] Launching BlueStacks instance: ${inst.name} on adb port ${inst.port}`);
+        
+        // Launch the instance
+        const child = require('child_process').spawn(bsPath, ['--instance', inst.name], { detached: true });
+        inst.pid = child.pid;
+
+        // Run async so multiple instances can boot in parallel
+        (async () => {
+            try {
+                // Wait for Android to finish booting (poll up to 120s)
+                console.log(`[Main] Waiting for Android boot sequence on ${inst.name}...`);
+                const adbPath = 'C:\\Program Files\\BlueStacks_nxt\\HD-Adb.exe';
+                const bsConfPath = 'E:\\TAUDIOS\\BlueStacks_nxt\\bluestacks.conf';
+                let booted = false;
+                for (let attempt = 0; attempt < 60; attempt++) {
+                    let activeAdbPort = inst.port;
+                    try {
+                        if (fs.existsSync(bsConfPath)) {
+                            const confData = fs.readFileSync(bsConfPath, 'utf8');
+                            const match = confData.match(new RegExp(`bst\\.instance\\.${inst.name}\\.status\\.adb_port="(.*?)"`));
+                            if (match && match[1]) {
+                                activeAdbPort = match[1];
+                            }
+                        }
+                        
+                        // First ensure it's connected (this might say "already connected", which is fine)
+                        await exec(`"${adbPath}" connect 127.0.0.1:${activeAdbPort}`, { timeout: 3000 });
+                        
+                        // Then check boot property
+                        const { stdout } = await exec(`"${adbPath}" -s 127.0.0.1:${activeAdbPort} shell getprop sys.boot_completed`, { timeout: 3000 });
+                        if (stdout.trim() === '1') { 
+                            console.log(`[Main] ✓ Android boot completed on port ${activeAdbPort} (attempt ${attempt})`);
+                            inst.port = activeAdbPort; // Save the working port
+                            booted = true; 
+                            break; 
+                        }
+                    } catch(e) {
+                        // Expected to throw when device is offline, booting, or if adb connect times out
+                    }
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                if (!booted) { 
+                    console.error(`[Main] ✗ Android boot timeout for ${inst.name}`); 
+                    // Let's attempt to launch Bing anyway just in case the prop check was failing
+                }
+
+                // Give launcher 4 seconds to settle after boot
+                console.log(`[Main] Settling launcher...`);
+                await new Promise(r => setTimeout(r, 4000));
+
+                // Launch Bing app
+                console.log(`[Main] Launching Bing in ${inst.name}...`);
+                const { stdout, stderr } = await exec(
+                    `"${adbPath}" -s 127.0.0.1:${inst.port} shell monkey -p com.microsoft.bing -c android.intent.category.LAUNCHER 1`,
+                    { timeout: 10000 }
+                );
+                
+                if (stdout.includes('Events injected: 1')) {
+                    console.log(`[Main] ✓ Bing successfully launched in ${inst.name}`);
+                } else {
+                    console.error(`[Main] ✗ Bing launch failed in ${inst.name}. Stdout: ${stdout.trim()}, Stderr: ${stderr ? stderr.trim() : ''}`);
+                }
+            } catch(e) {
+                console.error(`[Main] Automation error for ${inst.name}:`, e.message);
+            }
+        })();
+      }
+    } catch (e) {
+      console.error('[Main] BlueStacks launch failed:', e);
+      sessionActive = false;
+      return { success: false, error: e.message };
+    }
+  } else {
+    // Edge Mode: Maximize the window to fit all webviews
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.maximize();
+    }
+    console.log(`[Main] Session started with ${profileDirs.length} profiles (embedded mode)`);
   }
 
-  console.log(`[Main] Session started with ${profileDirs.length} profiles (embedded mode)`);
   return {
     success: true,
     settings: appSettings
@@ -309,11 +424,59 @@ function setupIPC() {
     return statuses;
   });
 
-  ipcMain.handle('start-session', async (_, profileDirs) => {
-    return await startSession(profileDirs);
+  ipcMain.handle('start-session', async (_, { profileDirs, searchMode }) => {
+    return await startSession(profileDirs, searchMode);
+  });
+
+  ipcMain.handle('dock-bluestacks', (_, { index, x, y, width, height }) => {
+    if (!global.sessionBlueStacksInstances || !global.sessionBlueStacksInstances[index]) return;
+    const inst = global.sessionBlueStacksInstances[index];
+    
+    // Read 8-byte buffer as signed 64-bit int (works reliably in Node on 64-bit systems)
+    const hwndHex = mainWindow.getNativeWindowHandle().readBigInt64LE(0).toString(16);
+    
+    const overlayExe = path.join(__dirname, 'overlay.exe');
+    if (fs.existsSync(overlayExe)) {
+       console.log(`[Main] Docking ${inst.title} to Electron window at ${x},${y} (${width}x${height})`);
+       if (!global.overlayProcs) global.overlayProcs = {};
+       
+       // Kill existing overlay process if it exists to prevent ghost process memory leaks
+       if (global.overlayProcs[index]) {
+           try {
+               global.overlayProcs[index].stdin.write("exit\n");
+               global.overlayProcs[index].kill();
+           } catch(e) {}
+       }
+       
+       const child = require('child_process').spawn(overlayExe, [
+          hwndHex, inst.title, x.toString(), y.toString(), width.toString(), height.toString()
+       ]);
+       
+       child.stdout.on('data', data => console.log(`[Overlay-${inst.name}] ${data.toString().trim()}`));
+       child.stderr.on('data', data => console.error(`[Overlay-${inst.name}] ${data.toString().trim()}`));
+       
+       global.overlayProcs[index] = child;
+    } else {
+       console.error('[Main] overlay.exe not found!');
+    }
+  });
+
+  ipcMain.handle('update-bluestacks-bounds', (_, { index, x, y, width, height }) => {
+     if (global.overlayProcs && global.overlayProcs[index]) {
+         global.overlayProcs[index].stdin.write(`${x},${y},${width},${height}\n`);
+     }
   });
 
   ipcMain.handle('stop-session', () => {
+    if (global.overlayProcs) {
+        for (const idx in global.overlayProcs) {
+            try {
+                global.overlayProcs[idx].stdin.write("exit\n");
+                global.overlayProcs[idx].kill();
+            } catch (e) {}
+        }
+        global.overlayProcs = {};
+    }
     stopSession();
     return { success: true };
   });
@@ -407,6 +570,18 @@ function sendToRenderer(channel, data) {
 }
 
 // ─── App Lifecycle ───
+// Compile C# overlay if needed
+const overlayExe = path.join(__dirname, 'overlay.exe');
+const overlayCs = path.join(__dirname, 'overlay.cs');
+if (!fs.existsSync(overlayExe) && fs.existsSync(overlayCs)) {
+    console.log('[Main] Compiling overlay.cs...');
+    try {
+        require('child_process').execSync(`"C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe" /out:"${overlayExe}" "${overlayCs}"`);
+    } catch (e) {
+        console.error('[Main] Failed to compile overlay.cs:', e.message);
+    }
+}
+
 app.whenReady().then(async () => {
   loadSettings();
 
