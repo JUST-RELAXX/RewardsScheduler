@@ -228,8 +228,14 @@ async function startSession(profileDirs, searchMode = 'edge') {
         throw new Error('BlueStacks executable not found in C:\\Program Files\\BlueStacks_nxt\\');
       }
 
+      const profilesData = profileManager.getProfilesData();
+
       for (let i = 0; i < profileDirs.length; i++) {
-        const inst = instances[i];
+        const globalIndex = profilesData.findIndex(p => p.dir === profileDirs[i]);
+        if (globalIndex === -1 || globalIndex >= instances.length) {
+          throw new Error(`Profile ${profileDirs[i]} does not map to a valid BlueStacks instance.`);
+        }
+        const inst = instances[globalIndex];
         console.log(`[Main] Launching BlueStacks instance: ${inst.name} on adb port ${inst.port}`);
         sendToRenderer('session-update', { message: `[SYS] Initializing BlueStacks instance: ${inst.name}...` });
         
