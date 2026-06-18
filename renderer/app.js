@@ -1267,6 +1267,8 @@ const STATUS_ICONS = {
   ready: '<svg viewBox="0 0 24 24" width="14" height="14" fill="#10b981" stroke="none" style="vertical-align: text-bottom; filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));"><circle cx="12" cy="12" r="8"/></svg>'
 };
 
+let statusTimeout = null;
+
 function setStatus(iconArg, text, type) {
   let iconHtml = STATUS_ICONS[type] || STATUS_ICONS.info;
   if (text.startsWith('Ready')) iconHtml = STATUS_ICONS.ready;
@@ -1275,10 +1277,26 @@ function setStatus(iconArg, text, type) {
   if (dom.statusText) dom.statusText.textContent = text;
   const banner = dom.statusIcon?.closest('.status-banner');
   if (banner) {
+    banner.style.display = 'flex';
+    banner.style.opacity = '1';
+    banner.style.transition = 'opacity 0.5s ease';
     if (type === 'error') banner.style.borderColor = 'rgba(255,23,68,0.3)';
     else if (type === 'success') banner.style.borderColor = 'rgba(0,230,118,0.3)';
     else if (type === 'warning') banner.style.borderColor = 'rgba(255,171,0,0.3)';
     else banner.style.borderColor = '';
+  }
+
+  if (statusTimeout) clearTimeout(statusTimeout);
+  
+  if (type === 'error' || type === 'warning' || type === 'success' || type === 'info') {
+      statusTimeout = setTimeout(() => {
+          if (banner) {
+             banner.style.opacity = '0';
+             setTimeout(() => {
+                if (banner.style.opacity === '0') banner.style.display = 'none';
+             }, 500);
+          }
+      }, 10000);
   }
 }
 
