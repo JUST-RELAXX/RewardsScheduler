@@ -68,13 +68,7 @@ class ExtensionInstance {
     this.initChart();
     this.bindEvents();
     
-    // Auto-unlock with the provided test API key
-    setTimeout(() => {
-      if (this.ui.apiKeyInput) {
-        this.ui.apiKeyInput.value = '@Test01';
-        this.ui.btnUnlock.click();
-      }
-    }, 300);
+
   }
   
   initCategories() {
@@ -431,9 +425,13 @@ class ExtensionInstance {
     const savedApi = localStorage.getItem(`apiKey_${pKey}`);
     if (savedApi) {
       this.ui.apiKeyInput.value = savedApi;
-      // Delay auto-unlock slightly to ensure UI is ready
-      setTimeout(() => this.ui.btnUnlock.click(), 100);
+    } else if (this.ui.apiKeyInput) {
+      this.ui.apiKeyInput.value = '@Test01';
     }
+    // Delay auto-unlock slightly to ensure UI is ready
+    setTimeout(() => {
+      if (this.ui.btnUnlock) this.ui.btnUnlock.click();
+    }, 100);
 
     this.ui.btnUnlock.addEventListener('click', async () => {
       const key = this.ui.apiKeyInput.value.trim();
@@ -551,7 +549,7 @@ class ExtensionInstance {
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
           if (res.statusCode === 200) {
-            try { resolve(JSON.parse(body).prompts || []); } catch (e) { reject(e); }
+            try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
           } else {
             reject(new Error(`Fetch failed: ${res.statusCode} - ${body}`));
           }
@@ -562,87 +560,53 @@ class ExtensionInstance {
     });
   }
 
-  async fetchGroqDelays(limit, ySeconds, minDelay, maxDelay) {
-    const groqKey = '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';
+  generateLocalDelays(count, targetSum, minVal, maxVal) {
+    if (count * minVal > targetSum || count * maxVal < targetSum) return null; // impossible constraints, let caller fall back
 
-    const systemInstruction = `You must generate a list of exactly ${limit} integers between ${minDelay} and ${maxDelay}. 
-CRITICAL RULES:
-1. The sum of all ${limit} numbers MUST be EXACTLY ${ySeconds}.
-2. The numbers MUST have EXTREME DISPARITY and HIGH VARIANCE. Mix very low numbers (close to ${minDelay}) and very high numbers (close to ${maxDelay}) chaotically. DO NOT just output the mathematical average repeatedly. Make it look like highly erratic human behavior.
-3. Only return the numbered list. No other text. Format exactly like this:
-1. 10
-2. 29`;
-    
-    try {
-      this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #b388ff;";
-      this.ui.statusMessage.innerHTML = `🧠 AI Calculating ${limit} perfect delays...`;
-      
-      console.log(`[${this.profileDir}] [AI] Formulating system prompt for Groq Llama3 70B model...`);
-      console.log(`[${this.profileDir}] [AI] Constraints: ${limit} searches over ${ySeconds} total seconds (Min: ${minDelay}s, Max: ${maxDelay}s)`);
-      console.log(`[${this.profileDir}] [NET] Transmitting payload to api.groq.com...`);
+    const delays = new Array(count).fill(minVal);
+    let remaining = targetSum - (count * minVal);
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile', 
-          messages: [{ role: 'user', content: systemInstruction }],
-          temperature: 0.7 
-        })
-      });
-      
-      console.log(`[${this.profileDir}] [NET] AI Request fulfilled (Status ${response.status})`);
-      
-      if (!response.ok) {
-        console.error(`[${this.profileDir}] [AI] HTTP Error: ${response.status}`);
-        throw new Error(`Groq API Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "";
-      console.log(`[${this.profileDir}] [AI] Raw inference payload received: ${content.length} characters`);
-      
-      // Parse numbers from the output
-      const lines = content.split('\n');
-      const delays = [];
-      for (const line of lines) {
-         // Try to parse format like "1. 15" or "1- 15"
-         const parts = line.split(/[.-]/);
-         if (parts.length >= 2) {
-             const val = parseInt(parts[1].trim());
-             if (!isNaN(val)) delays.push(val);
-         } else {
-             // Fallback: just extract the first number found if there's no numbering
-             const match = line.match(/\d+/);
-             if (match) delays.push(parseInt(match[0]));
-         }
-      }
-      
-      // Filter out invalid ones
-      const validDelays = delays.filter(d => !isNaN(d) && d > 0);
-      
-      // If it generated at least the amount we need, return it
-      if (validDelays.length >= limit) {
-         return validDelays.slice(0, limit);
-      } else if (validDelays.length > 0) {
-         // If it generated some, but not enough, repeat them to fill
-         const padded = [...validDelays];
-         while (padded.length < limit) {
-           padded.push(validDelays[Math.floor(Math.random() * validDelays.length)]);
-         }
-         return padded;
-      }
-      return null;
-    } catch (err) {
-      console.warn("Groq API Delay Fetch Failed:", err);
-      return null;
+    while (remaining > 0) {
+      const idx = Math.floor(Math.random() * count);
+      const maxAdd = Math.min(remaining, maxVal - delays[idx]);
+      if (maxAdd <= 0) continue;
+      const add = Math.floor(Math.random() * maxAdd) + 1;
+      delays[idx] += add;
+      remaining -= add;
     }
+
+    for (let i = delays.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [delays[i], delays[j]] = [delays[j], delays[i]];
+    }
+
+    for (let i = 0; i < delays.length - 1; i += 2) {
+      if (Math.random() > 0.5) {
+        const diff = Math.floor(Math.random() * Math.min(delays[i] - minVal, maxVal - delays[i + 1], 3));
+        if (diff > 0) {
+          delays[i] -= diff;
+          delays[i + 1] += diff;
+        }
+      }
+    }
+
+    return delays;
   }
 
   async refreshQueries(key) {
+    if (this.queriesFetchPromise) {
+      if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] Fetch already in progress, waiting...`, 'info');
+      return this.queriesFetchPromise;
+    }
+    this.queriesFetchPromise = this._doRefreshQueries(key);
+    try {
+      return await this.queriesFetchPromise;
+    } finally {
+      this.queriesFetchPromise = null;
+    }
+  }
+
+  async _doRefreshQueries(key) {
     let topicsToSend = this.selectedCategories;
     
     // Reset basic styling first
@@ -670,9 +634,24 @@ CRITICAL RULES:
       this.ui.statusMessage.textContent = "Fetching new queries...";
     }
     
+    if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] Fetching prompts from API...`, 'info');
+
     try {
       if (!this.token) this.token = await this.fetchToken('@Test01');
-      this.queries = await this.fetchQueriesFromAPI(this.token, topicsToSend);
+      
+      let response;
+      try {
+        response = await this.fetchQueriesFromAPI(this.token, topicsToSend);
+      } catch (firstErr) {
+        if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] ⚠️ API error: ${firstErr.message}`, 'warn');
+        await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+        response = await this.fetchQueriesFromAPI(this.token, topicsToSend);
+      }
+      
+      this.queries = response.prompts || [];
+      const keyUsed = response.key_used || 'unknown';
+
+      if (this.queries.length > 35) this.queries = this.queries.slice(0, 35);
       
       if (topicsToSend === this.selectedCategories && topicsToSend.length > 0) {
         this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #4caf50;";
@@ -680,6 +659,7 @@ CRITICAL RULES:
       } else {
         this.ui.statusMessage.innerHTML += `<br><span style="color:#69f0ae; font-style:normal;">Loaded ${this.queries.length} queries</span>`;
       }
+      if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] ✅ ${this.queries.length} prompts fetched (key: ${keyUsed})`, 'success');
       
       if (this.ui.totalPrompts) this.ui.totalPrompts.textContent = this.queries.length;
       if (this.ui.remainingText) this.ui.remainingText.textContent = `${this.queries.length} remaining`;
@@ -687,6 +667,9 @@ CRITICAL RULES:
     } catch (e) {
       console.warn("API failed, using fallback queries:", e.message, e);
       this.queries = shuffleArray(FALLBACK_QUERIES);
+      if (this.queries.length > 35) this.queries = this.queries.slice(0, 35);
+      
+      if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] ❌ Retry failed — falling back to ${this.queries.length} offline queries`, 'fallback');
       
       if (e.message && e.message.includes("Rate limit reached")) {
         this.ui.statusMessage.style.cssText = "display:block; text-align:center; margin-bottom: 15px; color: #ff5252;";
@@ -717,7 +700,7 @@ CRITICAL RULES:
     if (this.queries.length === 0) {
       this.isRunning = false;
       this.updateUIStatus('Error: No Queries');
-      addLogEntry(`[${this.profileDir}] Failed to start: No queries fetched from API.`, 'error');
+      if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] Failed to start: No queries fetched from API.`, 'error');
       return;
     }
     
@@ -781,25 +764,25 @@ CRITICAL RULES:
            
            if (Y < minPossibleTime) {
               Y = minPossibleTime + 10;
-              addLogEntry(`[${this.profileDir}] [ERROR] Global time too short! You set a minimum delay of ${l}s but only gave ${targetMins}m for ${remainingSearches} searches. Turn off "Random delay" or adjust limits. Clamping time to ${Y}s.`, 'error');
+              if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] [ERROR] Global time too short! You set a minimum delay of ${l}s but only gave ${targetMins}m for ${remainingSearches} searches. Turn off "Random delay" or adjust limits. Clamping time to ${Y}s.`, 'error');
            } else if (Y > maxPossibleTime) {
               Y = maxPossibleTime - 10;
-              addLogEntry(`[${this.profileDir}] [ERROR] Global time too long! Your max delay is ${m}s, which can't stretch ${remainingSearches} searches over ${targetMins}m. Turn off "Random delay" so the AI can automatically assign perfect delays. Clamping time to ${Y}s.`, 'error');
+              if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] [ERROR] Global time too long! Your max delay is ${m}s, which can't stretch ${remainingSearches} searches over ${targetMins}m. Turn off "Random delay" so the AI can automatically assign perfect delays. Clamping time to ${Y}s.`, 'error');
            }
        } else {
            // Auto-calculate perfect mathematical bounds based on global time
            const perfectAvg = Y / remainingSearches;
            l = Math.max(0, Math.floor(perfectAvg * 0.3)); // Min is 30% of avg
            m = Math.min(500, Math.ceil(perfectAvg * 1.7)); // Max is 170% of avg
-           addLogEntry(`[${this.profileDir}] Auto-assigning optimal delay range: ${l}s - ${m}s to fit ${targetMins}m global timeframe.`, 'info');
+           if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] Auto-assigning optimal delay range: ${l}s - ${m}s to fit ${targetMins}m global timeframe.`, 'info');
        }
        
-       this.aiDelays = await this.fetchGroqDelays(remainingSearches, Y, l, m);
+       this.aiDelays = this.generateLocalDelays(remainingSearches, Y, l, m);
        
        if (this.aiDelays && this.aiDelays.length > 0) {
-         addLogEntry(`[${this.profileDir}] AI generated exactly ${this.aiDelays.length} pacing intervals: ${this.aiDelays.join(', ')}`, 'success');
+         if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] AI generated exactly ${this.aiDelays.length} pacing intervals: ${this.aiDelays.join(', ')}`, 'success');
        } else {
-         addLogEntry(`[${this.profileDir}] AI Pacing fallback to standard algorithm.`, 'warning');
+         if (window.addLogEntry) window.addLogEntry(`[${this.profileDir}] AI Pacing fallback to standard algorithm.`, 'warning');
        }
     } else if (!useRandomDelay) {
        cycleTargetSec = parseInt(this.ui.delaySlider?.value) || 10;

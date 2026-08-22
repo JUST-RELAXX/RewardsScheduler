@@ -145,7 +145,7 @@ function renderGrid() {
     card.dataset.dir = p.dir;
 
     if (p.searchesDone) card.classList.add('done');
-    if (selectedProfiles.has(p.dir) && !p.searchesDone) card.classList.add('selected');
+    if (selectedProfiles.has(p.dir)) card.classList.add('selected');
     if (p.searchStatus === 'searching') card.classList.add('searching');
     if (p.searchStatus === 'keepalive') card.classList.add('keepalive');
 
@@ -284,30 +284,6 @@ function setupUI() {
   if (dom.btnRunSelected) dom.btnRunSelected.style.display = 'flex';
   if (dom.btnRefreshProfiles) dom.btnRefreshProfiles.style.display = 'flex';
 
-  let pendingRunProfiles = null;
-  const searchModeModal = document.getElementById('searchModeModal');
-
-  document.getElementById('btnModeEdge')?.addEventListener('click', () => {
-    searchModeModal.style.display = 'none';
-    if (pendingRunProfiles) startSession(pendingRunProfiles, 'edge');
-    pendingRunProfiles = null;
-  });
-
-  document.getElementById('btnModeBingApp')?.addEventListener('click', (e) => {
-    if (pendingRunProfiles && pendingRunProfiles.length > 1) {
-        e.preventDefault();
-        return; // Blocked for multiple profiles
-    }
-    searchModeModal.style.display = 'none';
-    if (pendingRunProfiles) startSession(pendingRunProfiles, 'bluestacks');
-    pendingRunProfiles = null;
-  });
-
-  document.getElementById('btnSearchModeCancel')?.addEventListener('click', () => {
-    searchModeModal.style.display = 'none';
-    pendingRunProfiles = null;
-  });
-
   // Run All
   on(dom.btnRunAll, 'click', async () => {
     if (!profilesLoaded || profiles.length === 0) {
@@ -320,17 +296,7 @@ function setupUI() {
       setStatus('🎉', 'All accounts are already done today!', 'success');
       return;
     }
-    pendingRunProfiles = undone;
-    const blockedOverlay = document.getElementById('bingBlockedOverlay');
-    const bingBtn = document.getElementById('btnModeBingApp');
-    if (pendingRunProfiles.length > 1) {
-        if (blockedOverlay) blockedOverlay.style.display = 'flex';
-        if (bingBtn) { bingBtn.style.opacity = '0.6'; bingBtn.style.cursor = 'not-allowed'; }
-    } else {
-        if (blockedOverlay) blockedOverlay.style.display = 'none';
-        if (bingBtn) { bingBtn.style.opacity = '1'; bingBtn.style.cursor = 'pointer'; }
-    }
-    searchModeModal.style.display = 'flex';
+    startSession(undone);
   });
 
   // Run Selected
@@ -339,17 +305,7 @@ function setupUI() {
       setStatus('⚠️', 'Select at least one account first!', 'warning');
       return;
     }
-    pendingRunProfiles = [...selectedProfiles];
-    const blockedOverlay = document.getElementById('bingBlockedOverlay');
-    const bingBtn = document.getElementById('btnModeBingApp');
-    if (pendingRunProfiles.length > 1) {
-        if (blockedOverlay) blockedOverlay.style.display = 'flex';
-        if (bingBtn) { bingBtn.style.opacity = '0.6'; bingBtn.style.cursor = 'not-allowed'; }
-    } else {
-        if (blockedOverlay) blockedOverlay.style.display = 'none';
-        if (bingBtn) { bingBtn.style.opacity = '1'; bingBtn.style.cursor = 'pointer'; }
-    }
-    searchModeModal.style.display = 'flex';
+    startSession([...selectedProfiles]);
   });
 
   // Stop
@@ -640,6 +596,9 @@ function addLogEntry(text, type = 'info') {
   }
 
   entry.className = `log-entry ${type}`;
+  if (type === 'fallback') {
+    entry.style.color = '#ffb74d';
+  }
   const now = new Date();
   const h = String(now.getHours()).padStart(2, '0');
   const m = String(now.getMinutes()).padStart(2, '0');
@@ -651,6 +610,7 @@ function addLogEntry(text, type = 'info') {
   dom.consoleBody.scrollTop = dom.consoleBody.scrollHeight;
   while (dom.consoleBody.children.length > 500) dom.consoleBody.firstChild.remove();
 }
+window.addLogEntry = addLogEntry;
 
 // ─── Session ───
 async function startSession(profileDirs, searchMode = 'edge') {
@@ -687,97 +647,7 @@ async function startSession(profileDirs, searchMode = 'edge') {
     const p = profiles.find(pr => pr.dir === dir);
     if (p) p.searchStatus = 'waiting';
 
-    if (searchMode === 'bluestacks') {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'webview-wrapper';
-      wrapper.style.display = 'flex';
-      wrapper.style.flexDirection = 'column';
-      
-      wrapper.innerHTML = `
-        <div class="webview-header" style="justify-content: space-between; border-bottom: 1px solid #1a2235;">
-          <span class="webview-title">📱 ${esc(p ? p.displayName : dir)}</span>
-        </div>
-        <div style="flex:1; width:100%; height:100%; display: flex; align-items: center; justify-content: center; background: #0a0e1a; padding: 10px;">
-           <div id="bsPlaceholder-${index}" style="aspect-ratio: 9/16; height: 100%; max-width: 100%; background: #0f1524; position: relative; border-radius: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #1a2235;">
-             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align:center; color: #475569;">
-               <div style="margin-bottom: 12px; display: flex; justify-content: center; color: #64748b;">
-                 <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                 </svg>
-               </div>
-               <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.5px;">Waiting for Engine...</div>
-               <div style="font-size: 10px; margin-top: 6px; opacity: 0.7;">Overlay initializing</div>
-             </div>
-           </div>
-        </div>
-      `;
-      dom.webviewGrid.appendChild(wrapper);
 
-      // Report dimensions immediately to allow overlay.exe to wait for the window and snap it instantly
-      setTimeout(() => {
-        const placeholder = wrapper.querySelector(`#bsPlaceholder-${index}`);
-        if (!placeholder) return;
-        const rect = placeholder.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        
-        ipcRenderer.invoke('dock-bluestacks', {
-          index: index,
-          x: Math.round(rect.left * dpr),
-          y: Math.round(rect.top * dpr),
-          width: Math.round(rect.width * dpr),
-          height: Math.round(rect.height * dpr)
-        }).catch(err => console.error("Dock error:", err));
-        
-        // Start tracking size and position continuously at ~60 FPS
-        let lastX, lastY, lastW, lastH;
-        
-        const trackBounds = () => {
-            if (!placeholder.isConnected) return; // Stop if removed from DOM
-            const updatedRect = placeholder.getBoundingClientRect();
-            // If the element is hidden (e.g. tab switched), don't send 0,0,0,0 which hides the window
-            if (updatedRect.width === 0 && updatedRect.height === 0) return;
-            
-            const dpr = window.devicePixelRatio || 1;
-            const newX = Math.round(updatedRect.left * dpr);
-            const newY = Math.round(updatedRect.top * dpr);
-            const newW = Math.round(updatedRect.width * dpr);
-            const newH = Math.round(updatedRect.height * dpr);
-            
-            // Calculate clip bounds against the scrollable container
-            const gridRect = dom.webviewGrid.getBoundingClientRect();
-            let clipTop = updatedRect.top < gridRect.top ? gridRect.top - updatedRect.top : 0;
-            let clipBottom = updatedRect.bottom > gridRect.bottom ? updatedRect.bottom - gridRect.bottom : 0;
-            let clipLeft = updatedRect.left < gridRect.left ? gridRect.left - updatedRect.left : 0;
-            let clipRight = updatedRect.right > gridRect.right ? updatedRect.right - gridRect.right : 0;
-
-            // Prevent negative values if completely out of view
-            clipTop = Math.max(0, Math.round(clipTop * dpr));
-            clipBottom = Math.max(0, Math.round(clipBottom * dpr));
-            clipLeft = Math.max(0, Math.round(clipLeft * dpr));
-            clipRight = Math.max(0, Math.round(clipRight * dpr));
-            
-            const stateKey = `${newX},${newY},${newW},${newH},${clipTop},${clipBottom},${clipLeft},${clipRight}`;
-            if (stateKey !== lastX) { // repurpose lastX as stateKey string
-                lastX = stateKey;
-                ipcRenderer.invoke('update-bluestacks-bounds', {
-                    index: index,
-                    x: newX, y: newY, width: newW, height: newH,
-                    clipTop, clipLeft, clipRight, clipBottom
-                }).catch(() => {});
-            }
-        };
-
-        const intervalId = setInterval(trackBounds, 16);
-        
-        // Store the interval so we can clear it later
-        if (!window.bsIntervals) window.bsIntervals = [];
-        window.bsIntervals.push(intervalId);
-
-      }, 100); 
-
-      return;
-    }
 
     // Create wrapper for webview and extension panel
     const wrapper = document.createElement('div');
@@ -790,6 +660,7 @@ async function startSession(profileDirs, searchMode = 'edge') {
         <div>
           <button class="toggle-extension-btn" id="toggleGraph-${index}" style="margin-right: 5px;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Graph</button>
           <button class="toggle-extension-btn" id="toggle-${index}"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Config</button>
+          <button class="toggle-extension-btn close-profile-btn" id="closeProfile-${index}" data-dir="${dir}" style="margin-left: 5px; color: #ff4d4d; border-color: #ff4d4d; display: inline-flex; justify-content: center; align-items: center; padding: 4px 8px;" title="Close Profile"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       </div>
       <webview id="wv-${index}" src="https://www.bing.com" partition="persist:${dir}" 
@@ -899,6 +770,64 @@ async function startSession(profileDirs, searchMode = 'edge') {
       }
     });
 
+    // Setup logic for closing profile
+    const closeProfileBtn = wrapper.querySelector(`#closeProfile-${index}`);
+    closeProfileBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to close this profile?')) {
+        try {
+          // Log start
+          window.addLogEntry(`Attempting to close profile ${dir}`, 'info');
+          console.log(`[CloseProfile] Attempting to close profile ${dir}`);
+
+          try {
+            await ipcRenderer.invoke('stop-profile', dir);
+            window.addLogEntry(`stopProfile IPC call resolved for ${dir}`, 'info');
+            console.log(`[CloseProfile] stopProfile IPC call resolved for ${dir}`);
+          } catch (ipcErr) {
+            window.addLogEntry(`IPC stopProfile failed: ${ipcErr.message}`, 'error');
+            console.error(`[CloseProfile] IPC stopProfile failed:`, ipcErr);
+          }
+
+          if (extensionInstances[dir]) {
+            extensionInstances[dir].stopSearching();
+            delete extensionInstances[dir];
+            window.addLogEntry(`stopSearching completed for ${dir}`, 'info');
+            console.log(`[CloseProfile] stopSearching completed for ${dir}`);
+          }
+          
+          wrapper.remove();
+          window.addLogEntry(`webview wrapper removed for ${dir}`, 'info');
+          console.log(`[CloseProfile] webview wrapper removed for ${dir}`);
+
+          if (selectedProfiles.has(dir)) {
+            selectedProfiles.delete(dir);
+          }
+          
+          // Exact nutshell item lookup matching nutshell renderer
+          const nutshellItem = dom.nutshellList.querySelector(`.nutshell-item[data-dir="${CSS.escape(dir)}"]`);
+          
+          if (nutshellItem) {
+            nutshellItem.classList.add('removing');
+            setTimeout(() => nutshellItem.remove(), 300); // 300ms matches css transition
+            window.addLogEntry(`nutshell item located and removal started for ${dir}`, 'info');
+            console.log(`[CloseProfile] nutshell item located and removal started for ${dir}`);
+          } else {
+            window.addLogEntry(`nutshell item NOT found for ${dir}`, 'warning');
+            console.warn(`[CloseProfile] nutshell item NOT found for ${dir} (expected name: ${expectedName})`);
+          }
+
+          renderGrid();
+          updateDoneCounter();
+          window.addLogEntry(`UI update and renderGrid complete for ${dir}`, 'success');
+          console.log(`[CloseProfile] UI update and renderGrid complete for ${dir}`);
+          
+        } catch (err) {
+          window.addLogEntry(`Error closing profile: ${err.message}`, 'error');
+          console.error(`[CloseProfile] Exception in close button handler:`, err);
+        }
+      }
+    });
+
     // Setup Toggle Logic for Graph Panel
     toggleGraphBtn.addEventListener('click', () => {
       if (graphPanel.style.display === 'none') {
@@ -921,6 +850,8 @@ async function startSession(profileDirs, searchMode = 'edge') {
     
     // Hide native scrollbars in the embedded page and handle zoom
     webviewEl.addEventListener('dom-ready', () => {
+      if (webviewEl._isInitialized) return;
+      webviewEl._isInitialized = true;
       webviewEl.insertCSS('::-webkit-scrollbar { display: none !important; }');
       
       // Auto-scale zoom based on the wrapper width for both webview and extension overlay
@@ -965,6 +896,9 @@ async function startSession(profileDirs, searchMode = 'edge') {
 
     // Instantiate and store
     extensionInstances[dir] = new ExtensionInstance(dir, webviewEl, uiElements);
+    addLogEntry(`🚀 Launched profile ${index + 1}/${profileDirs.length}: ${dir}`, 'info');
+    addLogEntry(`🔗 Extension connected: ${dir}`, 'info');
+    
     if (p && p.executed > 0) {
        extensionInstances[dir].executedCount = p.executed;
        extensionInstances[dir].ui.countText.textContent = p.executed;
@@ -1102,10 +1036,11 @@ async function startSession(profileDirs, searchMode = 'edge') {
        else if (inst.executedCount > 0 && !inst.isRunning) statusColor = '#ff5252'; // Red (Error/Halted)
        
        if (dom.nutshellList) {
-           let itemDiv = dom.nutshellList.children[i];
+           let itemDiv = dom.nutshellList.querySelector(`.nutshell-item[data-dir="${CSS.escape(dir)}"]`);
            if (!itemDiv) {
                itemDiv = document.createElement('div');
                itemDiv.className = 'nutshell-item';
+               itemDiv.dataset.dir = dir;
                itemDiv.innerHTML = `
                   <span class="nutshell-name" style="white-space:nowrap; overflow:visible; font-weight:500; padding: 2px 0;"></span>
                   <span class="nutshell-points" style="font-weight:bold; transition: opacity 0.2s;"></span>
